@@ -2,10 +2,10 @@
 
 Running log of decisions and tuning. See `HANDOFF.md` for the vision and milestones.
 
-## Status (2026-10-16)
+## Status (2026-10-25)
 
 - **Milestone 1:** **passed at the piano (2026-10-25).** FP-30 found over USB as "Roland Digital Piano"; C major scale printed cleanly with timestamps, velocities and note-offs; `bars 1-8` prints all four parts. One stray C#6 at velocity 1 appeared at the start of the first run only (probably a brushed key); watch for it in takes.
-- **Milestone 2:** built. Matchmaker follows the piano part offline on synthetic takes. **Not yet tested live or on real recordings.**
+- **Milestone 2:** **first live test looks good (2026-10-25).** `follow` live on bars 1–16 tracked every half beat from bar 1 to bar 16 with no wrong jumps. Three real takes in `takes/` (clean, rubato, mistakes; ~42 s each, outerhmm). Replayed through the follower, all three move forward bar by bar to the end; the mistakes take has three brief one-beat backward steps (bars 5, 8, 13) that recover at once, and the rubato and mistakes takes end 0.5–1.5 beats past the last note of bar 16. Accuracy not yet measured: real takes have no ground truth.
 - Milestones 3+ not started, as instructed.
 
 ## Commands
@@ -60,6 +60,5 @@ Tests: `uv run pytest`.
 
 ## Next
 
-1. At the piano (M1 checks done 2026-10-25): learn bars 1–16, then `record` a take of bars 1–16 and `follow` live, including a few deliberate wrong notes.
-2. Add real takes to the evaluation. Check how outerhmm copes with the sparse opening played with real rubato.
-3. Then milestone 3.
+1. Add real takes to the evaluation: needs a reference alignment (e.g. note-match each take to the score offline). Check how outerhmm copes with the sparse opening played with real rubato.
+2. Then milestone 3.

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Protocol
@@ -41,13 +42,15 @@ class MatchmakerFollower:
         workdir.mkdir(exist_ok=True)
         piano_xml = score.export_part("Piano", workdir / "piano.musicxml")
         self.score = score
-        self.mm = Matchmaker(
-            score_file=str(piano_xml),
-            performance_file=str(performance_file) if performance_file else None,
-            input_type="midi",
-            method=method,
-            device_name_or_index=port,
-        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # Matchmaker reloads the score with partitura, which chatters about slurs
+            self.mm = Matchmaker(
+                score_file=str(piano_xml),
+                performance_file=str(performance_file) if performance_file else None,
+                input_type="midi",
+                method=method,
+                device_name_or_index=port,
+            )
 
     def positions(self) -> Iterator[Position]:
         for beat in self.mm.run(verbose=False):
