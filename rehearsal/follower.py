@@ -52,6 +52,12 @@ class MatchmakerFollower:
                 device_name_or_index=port,
             )
 
+    def stop(self) -> None:
+        """Stop a live follower running in another thread (its MIDI stream thread would keep the process alive)."""
+        stream = self.mm.stream
+        if stream is not None and stream.is_alive():
+            stream.stop()
+
     def positions(self) -> Iterator[Position]:
         for beat in self.mm.run(verbose=False):
             bar, bib = self.score.bar_at(float(beat))

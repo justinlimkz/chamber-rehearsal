@@ -110,6 +110,57 @@ def cmd_evaluate(args) -> int:
     return 0
 
 
+def cmd_accompany(args) -> int:
+    """Strings follow the piano (the milestone 3 test). Live, or offline from a recorded take."""
+    score = Score(args.score)
+    if args.replay:
+        from . import simulate
+        from .sound import render_wav
+
+        events = midi_io.read_take(args.replay)
+        res = simulate.run(score, events, args.first, args.last)
+        for k, v in simulate.summary(res).items():
+            print(f"{k:<26}{v}")
+        stem = Path(args.replay).stem
+        mid = simulate.write_midi(events, res.outs, Path("build") / f"{stem}-with-strings.mid")
+        wav = render_wav(mid, mid.with_suffix(".wav"))
+        print(f"wrote {mid} and {wav}")
+        if args.listen:
+            import subprocess
+            subprocess.run(["afplay", str(wav)])
+        return 0
+    from . import live
+
+    port = args.port or midi_io.find_piano_input()
+    if port is None:
+        print(f"FP-30 not found. MIDI inputs: {midi_io.list_inputs() or 'none'}", file=sys.stderr)
+        return 1
+    saved = live.run(score, port, args.first, args.last)
+    if saved:
+        print(f"\nSession saved to {saved}")
+    return 0
+
+
+def cmd_session(args) -> int:
+    """Timing of a saved live session: strings against the piano where both play."""
+    import numpy as np
+
+    from . import session
+
+    score = Score(args.score)
+    r = session.analyze(score, Path(args.path), args.first, args.last)
+    a = np.array([x for _, _, x in r.rows]) * 1000
+    print(f"piano chords matched {r.piano_matched}/{r.piano_groups}, extra {r.piano_extra}")
+    print(f"string notes with a piano chord: {len(a)}; string minus piano: median {np.median(a):.0f} ms, "
+          f"within 30 ms {np.mean(np.abs(a) <= 30):.0%}, within 60 ms {np.mean(np.abs(a) <= 60):.0%}, "
+          f"late >60 ms {(a > 60).sum()}, early >60 ms {(a < -60).sum()}")
+    worst = sorted(r.rows, key=lambda x: -abs(x[2]))[:8]
+    for beat, part, x in worst:
+        bar, bib = score.bar_at(beat)
+        print(f"  bar {bar:>3} beat {bib:4.1f}  {part:<12}{x * 1000:+7.0f} ms")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="rehearsal")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -148,6 +199,22 @@ def main(argv=None) -> int:
     e.add_argument("--takes", help="folder of recorded .mid takes to score instead of synthetic ones")
     e.add_argument("--no-log", action="store_true")
     e.set_defaults(fn=cmd_evaluate)
+
+    a = sub.add_parser("accompany", help="strings follow the piano, live (or offline from a take with --replay)")
+    a.add_argument("--score", default=str(DEFAULT_SCORE))
+    a.add_argument("--port")
+    a.add_argument("--first", type=int, default=1)
+    a.add_argument("--last", type=int, default=16)
+    a.add_argument("--replay", help="a recorded take (.mid): simulate offline, print timing, render audio")
+    a.add_argument("--listen", action="store_true", help="with --replay, play the rendered audio")
+    a.set_defaults(fn=cmd_accompany)
+
+    se = sub.add_parser("session", help="timing of a saved live session (build/sessions/*.mid)")
+    se.add_argument("path")
+    se.add_argument("--score", default=str(DEFAULT_SCORE))
+    se.add_argument("--first", type=int, default=1)
+    se.add_argument("--last", type=int, default=16)
+    se.set_defaults(fn=cmd_session)
 
     args = p.parse_args(argv)
     return args.fn(args)
