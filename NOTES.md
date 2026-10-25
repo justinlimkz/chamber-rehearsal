@@ -4,7 +4,7 @@ Running log of decisions and tuning. See `HANDOFF.md` for the vision and milesto
 
 ## Status (2026-10-16)
 
-- **Milestone 1:** built and passing offline tests. **Not yet tested at the piano**: the FP-30 did not show up as a MIDI input (`uv run python -m rehearsal.cli ports` printed none), so check that it is switched on and connected by USB.
+- **Milestone 1:** **passed at the piano (2026-10-25).** FP-30 found over USB as "Roland Digital Piano"; C major scale printed cleanly with timestamps, velocities and note-offs; `bars 1-8` prints all four parts. One stray C#6 at velocity 1 appeared at the start of the first run only (probably a brushed key); watch for it in takes.
 - **Milestone 2:** built. Matchmaker follows the piano part offline on synthetic takes. **Not yet tested live or on real recordings.**
 - Milestones 3+ not started, as instructed.
 
@@ -48,6 +48,7 @@ Tests: `uv run pytest`.
 
   Within 1 beat is ~100% for outerhmm, pthmm and hmm. The other methods are consistently half a beat off about half the time, on eighth-note chords. Cause not investigated; we just don't use them.
 - **Repeat structure:** unfolding gives bars 64–70, then 64–68, then 71 onward (first and second endings). The handoff said "bars 64–70 are repeated"; the first-ending detail is slightly different.
+- **Piano port name:** over USB the FP-30 shows up as "Roland Digital Piano", not "FP-30". `find_piano_input()` matches either (2026-10-25).
 - Bar 1 is a full 3/4 bar with the first sound on beat 2, so bars 1–3 are the three-bar introduction and the cello starts at bar 4 (D3, C4, B♭3).
 
 ## Caveats
@@ -59,6 +60,6 @@ Tests: `uv run pytest`.
 
 ## Next
 
-1. At the piano: `ports`, `monitor` with a C major scale, `bars`, then `record` a take of bars 1–16 and `follow` live, including a few deliberate wrong notes.
+1. At the piano (M1 checks done 2026-10-25): learn bars 1–16, then `record` a take of bars 1–16 and `follow` live, including a few deliberate wrong notes.
 2. Add real takes to the evaluation. Check how outerhmm copes with the sparse opening played with real rubato.
 3. Then milestone 3.

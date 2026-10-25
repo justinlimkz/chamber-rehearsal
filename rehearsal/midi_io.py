@@ -48,22 +48,32 @@ def list_inputs() -> list[str]:
     return mido.get_input_names()
 
 
-def find_piano_input(hint: str = "FP-30") -> str | None:
+# The FP-30 reports itself over USB as "Roland Digital Piano", not by model name.
+PIANO_HINTS = ("FP-30", "Roland Digital Piano")
+
+
+def find_piano_input(hints: Iterable[str] = PIANO_HINTS) -> str | None:
     names = list_inputs()
-    for n in names:
-        if hint.lower() in n.lower():
-            return n
+    for hint in hints:
+        for n in names:
+            if hint.lower() in n.lower():
+                return n
     return None
 
 
 def live_events(port_name: str | None = None) -> Iterator[MidiEvent]:
-    """Blocking generator of events from a live port; time is seconds since the first call.
+    """Blocking iterator of events from a live port; time is seconds since the port opens.
 
+    The port is looked up immediately, so a missing piano raises here rather than on first read.
     Timestamps are taken in the rtmidi callback, not when the consumer gets round to reading.
     """
     name = port_name or find_piano_input()
     if name is None:
         raise RuntimeError(f"FP-30 not found. MIDI inputs: {list_inputs() or 'none'}")
+    return _port_events(name)
+
+
+def _port_events(name: str) -> Iterator[MidiEvent]:
     q: queue.SimpleQueue[MidiEvent] = queue.SimpleQueue()
     t0 = time.perf_counter()
 
