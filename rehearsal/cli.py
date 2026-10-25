@@ -97,7 +97,11 @@ def cmd_evaluate(args) -> int:
     from . import evaluate
 
     score = Score(args.score)
-    rows = evaluate.run_scenarios(score, args.first, args.last, args.method, log=None if args.no_log else Path("build/eval.jsonl"))
+    log = None if args.no_log else Path("build/eval.jsonl")
+    if args.takes:
+        rows = evaluate.run_recorded(score, Path(args.takes), args.first, args.last, args.method, log=log)
+    else:
+        rows = evaluate.run_scenarios(score, args.first, args.last, args.method, log=log)
     print(f"method={args.method} bars {args.first}-{args.last}")
     print(f"{'scenario':<14}{'seed':>4}{'<=.25b':>8}{'<=1b':>7}{'median':>8}{'max':>7}{'final':>7}{'lost':>6}{'secs':>6}")
     for r in rows:
@@ -136,11 +140,12 @@ def main(argv=None) -> int:
     f.add_argument("--replay", help="a recorded take (.mid) instead of live input")
     f.set_defaults(fn=cmd_follow)
 
-    e = sub.add_parser("evaluate", help="measure follower accuracy on synthetic takes with known ground truth")
+    e = sub.add_parser("evaluate", help="measure follower accuracy on synthetic takes, or on recorded takes with --takes")
     e.add_argument("--score", default=str(DEFAULT_SCORE))
     e.add_argument("--method", default="outerhmm")
     e.add_argument("--first", type=int, default=1)
     e.add_argument("--last", type=int, default=16)
+    e.add_argument("--takes", help="folder of recorded .mid takes to score instead of synthetic ones")
     e.add_argument("--no-log", action="store_true")
     e.set_defaults(fn=cmd_evaluate)
 

@@ -1,4 +1,4 @@
-"""Offline accuracy of the follower on takes with known ground truth."""
+"""Offline accuracy of the follower on synthetic takes, and on real takes against a reference alignment."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import midi_io, synth
+from . import midi_io, reference, synth
 from .follower import MatchmakerFollower
 from .score import Score
 
@@ -58,6 +58,26 @@ def run_take(score: Score, events, truth, method: str, workdir: Path = Path("bui
     return out
 
 
+def _log(log: Path | None, row: dict) -> None:
+    if log:
+        with open(log, "a") as fh:
+            fh.write(json.dumps({**row, "date": time.strftime("%Y-%m-%d %H:%M")}) + "\n")
+
+
+def run_recorded(score: Score, takes_dir: Path, first_bar: int, last_bar: int, method: str, log: Path | None = None) -> list[dict]:
+    """Score the follower on recorded takes; ground truth comes from `reference.align`."""
+    rows = []
+    for path in sorted(Path(takes_dir).glob("*.mid")):
+        events = midi_io.read_take(path)
+        ref = reference.align(score, events, first_bar, last_bar)
+        row = {"method": method, "bars": f"{first_bar}-{last_bar}", "scenario": path.stem, "seed": "-",
+               "ref_skipped": len(ref.skipped), "ref_extra": len(ref.extra)}
+        row.update(run_take(score, events, ref.truth, method))
+        rows.append(row)
+        _log(log, row)
+    return rows
+
+
 def run_scenarios(score: Score, first_bar: int, last_bar: int, method: str, seeds=(0, 1, 2), log: Path | None = None) -> list[dict]:
     rows = []
     for name, kw in SCENARIOS.items():
@@ -66,7 +86,5 @@ def run_scenarios(score: Score, first_bar: int, last_bar: int, method: str, seed
             row = {"method": method, "bars": f"{first_bar}-{last_bar}", "scenario": name, "seed": seed}
             row.update(run_take(score, take.events, take.truth, method))
             rows.append(row)
-            if log:
-                with open(log, "a") as fh:
-                    fh.write(json.dumps({**row, "date": time.strftime("%Y-%m-%d %H:%M")}) + "\n")
+            _log(log, row)
     return rows
