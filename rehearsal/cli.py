@@ -122,7 +122,7 @@ def cmd_accompany(args) -> int:
         for k, v in simulate.summary(res).items():
             print(f"{k:<26}{v}")
         stem = Path(args.replay).stem
-        mid = simulate.write_midi(events, res.outs, Path("build") / f"{stem}-with-strings.mid")
+        mid = simulate.write_midi(events, res.outs, Path("build") / f"{stem}-with-strings.mid", res.accompanist.notices)
         wav = render_wav(mid, mid.with_suffix(".wav"))
         print(f"wrote {mid} and {wav}")
         if args.listen:
@@ -135,7 +135,7 @@ def cmd_accompany(args) -> int:
     if port is None:
         print(f"FP-30 not found. MIDI inputs: {midi_io.list_inputs() or 'none'}", file=sys.stderr)
         return 1
-    saved = live.run(score, port, args.first, args.last)
+    saved = live.run(score, port, args.first, args.last, use_voice=not args.no_voice)
     if saved:
         print(f"\nSession saved to {saved}")
     return 0
@@ -150,7 +150,16 @@ def cmd_session(args) -> int:
     score = Score(args.score)
     r = session.analyze(score, Path(args.path), args.first, args.last)
     a = np.array([x for _, _, x in r.rows]) * 1000
-    print(f"piano chords matched {r.piano_matched}/{r.piano_groups}, extra {r.piano_extra}")
+    for p in r.passes:
+        (b0, _), (b1, _) = score.bar_at(p.first_beat), score.bar_at(p.last_beat)
+        pa = np.array([x for _, _, x in p.rows]) * 1000
+        timing = f"median {np.median(pa):+4.0f} ms, within 60 ms {np.mean(np.abs(pa) <= 60):4.0%}" if len(pa) else "no strings"
+        print(f"pass at {p.start:5.1f} s: bars {b0:>2}-{b1:<2}  piano chords {p.piano_matched:>3} (+{p.piano_extra} extra)  {timing}")
+        for t, text in p.notices:
+            print(f"    {t:6.1f} s  {text}")
+    if not len(a):
+        print("no string notes matched a piano chord")
+        return 0
     print(f"string notes with a piano chord: {len(a)}; string minus piano: median {np.median(a):.0f} ms, "
           f"within 30 ms {np.mean(np.abs(a) <= 30):.0%}, within 60 ms {np.mean(np.abs(a) <= 60):.0%}, "
           f"late >60 ms {(a > 60).sum()}, early >60 ms {(a < -60).sum()}")
@@ -207,6 +216,7 @@ def main(argv=None) -> int:
     a.add_argument("--last", type=int, default=16)
     a.add_argument("--replay", help="a recorded take (.mid): simulate offline, print timing, render audio")
     a.add_argument("--listen", action="store_true", help="with --replay, play the rendered audio")
+    a.add_argument("--no-voice", action="store_true", help="live: no microphone; type cues instead")
     a.set_defaults(fn=cmd_accompany)
 
     se = sub.add_parser("session", help="timing of a saved live session (build/sessions/*.mid)")

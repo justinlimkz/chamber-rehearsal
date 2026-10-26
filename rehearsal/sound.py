@@ -14,6 +14,7 @@ PROGRAMS = {"Violin": 40, "Viola": 41, "Violoncello": 42, "Piano": 0}  # General
 class SoundEngine(Protocol):
     def note_on(self, part: str, pitch: int, velocity: int) -> None: ...
     def note_off(self, part: str, pitch: int) -> None: ...
+    def expression(self, part: str, value: int) -> None: ...
     def close(self) -> None: ...
 
 
@@ -38,6 +39,9 @@ class FluidSynthEngine:
 
     def note_off(self, part: str, pitch: int) -> None:
         self.fs.noteoff(CHANNELS[part], pitch)
+
+    def expression(self, part: str, value: int) -> None:
+        self.fs.cc(CHANNELS[part], 11, value)
 
     def close(self) -> None:
         for ch in CHANNELS.values():

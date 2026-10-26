@@ -50,7 +50,9 @@ def score_groups(score: Score, first_bar: int, last_bar: int, part: str = "Piano
     return [(b, frozenset(p)) for b, p in sorted(groups.items())]
 
 
-def align(score: Score, events: list[MidiEvent], first_bar: int = 1, last_bar: int = 16) -> Reference:
+def align(score: Score, events: list[MidiEvent], first_bar: int = 1, last_bar: int = 16,
+          local: bool = False) -> Reference:
+    """With `local`, the take may start and end anywhere in the bar range (one pass of a session)."""
     perf = chords(events)
     ref = score_groups(score, first_bar, last_bar)
     n, m = len(perf), len(ref)
@@ -61,14 +63,14 @@ def align(score: Score, events: list[MidiEvent], first_bar: int = 1, last_bar: i
 
     D = np.zeros((n + 1, m + 1))
     D[:, 0] = np.arange(n + 1) * SKIP_COST
-    D[0, :] = np.arange(m + 1) * SKIP_COST
+    D[0, :] = 0.0 if local else np.arange(m + 1) * SKIP_COST
     for i in range(1, n + 1):
         for j in range(1, m + 1):
             D[i, j] = min(D[i - 1, j - 1] + 2 * cost(i - 1, j - 1), D[i - 1, j] + SKIP_COST, D[i, j - 1] + SKIP_COST)
 
     truth, skipped, extra = [], [], []
-    i, j = n, m
-    while i > 0 or j > 0:
+    i, j = n, (int(np.argmin(D[n])) if local else m)
+    while i > 0 or (j > 0 and not local):
         if i > 0 and j > 0 and np.isclose(D[i, j], D[i - 1, j - 1] + 2 * cost(i - 1, j - 1)) and cost(i - 1, j - 1) < 1.0:
             truth.append((perf[i - 1][0], ref[j - 1][0]))
             i, j = i - 1, j - 1

@@ -20,6 +20,7 @@ from .follower import MatchmakerFollower
 from .score import Score
 from .sound import CHANNELS, PROGRAMS
 from .tempo import BeatClock
+from .voice import Cue
 
 STEP_S = 0.001
 
@@ -32,7 +33,8 @@ class SimResult:
 
 
 def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_bar: int = 16,
-        clock: BeatClock | None = None, workdir: Path = Path("build")) -> SimResult:
+        clock: BeatClock | None = None, workdir: Path = Path("build"),
+        cues: list[tuple[float, Cue]] = ()) -> SimResult:
     workdir.mkdir(exist_ok=True)
     take_path = workdir / "sim_take.mid"
     midi_io.write_take(events, take_path)
@@ -42,7 +44,8 @@ def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_
     path = f.mm.score_follower.alignment_path
     inputs = [(e.time, 0, e.note) for e in events if e.is_onset]
     inputs += [(float(t), 1, float(b)) for b, t in zip(path[0], path[1])]
-    inputs.sort()
+    inputs += [(t, 2, c) for t, c in cues]
+    inputs.sort(key=lambda x: x[:2])
 
     acc = Accompanist(score, first_bar, last_bar, clock=clock or BeatClock(spb=60 / 63))
     outs: list[Out] = []
@@ -52,8 +55,10 @@ def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_
             t, kind, x = inputs[i]
             if kind == 0:
                 acc.on_piano_onset(t, int(x))
-            else:
+            elif kind == 1:
                 acc.on_follower(t, x)
+            else:
+                acc.on_cue(t, x)
             i += 1
         outs += [Out(now, o.kind, o.part, o.pitch, o.velocity, o.beat) for o in acc.due(now)]
         now += STEP_S
@@ -80,9 +85,10 @@ def summary(res: SimResult) -> dict:
     }
 
 
-def write_midi(events: list[midi_io.MidiEvent], outs: list[Out], path: Path) -> Path:
-    """Piano take plus the simulated strings, one channel each, for listening."""
-    msgs: list[tuple[float, mido.Message]] = []
+def write_midi(events: list[midi_io.MidiEvent], outs: list[Out], path: Path,
+               notices: list[tuple[float, str]] = ()) -> Path:
+    """Piano take plus the simulated strings, one channel each, for listening; notices become markers."""
+    msgs: list[tuple[float, mido.Message]] = [(t, mido.MetaMessage("marker", text=text)) for t, text in notices]
     for part, ch in CHANNELS.items():
         msgs.append((0.0, mido.Message("program_change", channel=ch, program=PROGRAMS[part])))
     piano = CHANNELS["Piano"]
@@ -94,8 +100,12 @@ def write_midi(events: list[midi_io.MidiEvent], outs: list[Out], path: Path) -> 
         else:
             msgs.append((e.time, mido.Message("note_off", channel=piano, note=e.note)))
     for o in outs:
-        kind = "note_on" if o.kind == "on" else "note_off"
-        msgs.append((o.time, mido.Message(kind, channel=CHANNELS[o.part], note=o.pitch, velocity=o.velocity)))
+        ch = CHANNELS[o.part]
+        if o.kind == "expr":
+            msgs.append((o.time, mido.Message("control_change", channel=ch, control=11, value=o.velocity)))
+        else:
+            kind = "note_on" if o.kind == "on" else "note_off"
+            msgs.append((o.time, mido.Message(kind, channel=ch, note=o.pitch, velocity=o.velocity)))
     mid = mido.MidiFile(ticks_per_beat=midi_io.TICKS_PER_BEAT)
     track = mido.MidiTrack([mido.MetaMessage("set_tempo", tempo=midi_io.TEMPO, time=0)])
     last = 0

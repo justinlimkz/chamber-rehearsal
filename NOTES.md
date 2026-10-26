@@ -2,12 +2,13 @@
 
 Running log of decisions and tuning. See `HANDOFF.md` for the vision and milestones.
 
-## Status (2026-10-25)
+## Status (2026-10-26)
 
 - **Milestone 1:** **passed at the piano (2026-10-25).** FP-30 found over USB as "Roland Digital Piano"; C major scale printed cleanly with timestamps, velocities and note-offs; `bars 1-8` prints all four parts. One stray C#6 at velocity 1 appeared at the start of the first run only (probably a brushed key); watch for it in takes.
 - **Milestone 2:** **passed (2026-10-25).** Live `follow` on bars 1–16 tracked every half beat from bar 1 to bar 16 with no wrong jumps. On the three recorded takes (`evaluate --takes takes`, outerhmm), share of score onsets within 0.25 beat / 1 beat: clean 0.85 / 1.0, rubato 0.89 / 1.0, mistakes 0.83 / 0.99. Median error 0 on all three; worst 1.5 beats, at the very end of the mistakes take.
 - **Milestone 3:** **passed at the piano (2026-10-25).** Three live runs of bars 1–16 (steady, rubato, with a stop), sessions in `build/sessions/` (`155158`, `155601`, `155725`). Every piano chord matched in order; strings never more than 60 ms late on any run. String minus piano where both play, bars 4–16: median −1 to +3 ms, 85–90% within 60 ms. Your tempo ranged ♩ = 57–75 in the rubato run. The outliers are the expected ones: the entrance at bar 4 after the strings' bars 2–3 (strings 0.2–1 s ahead: strings-lead, M5), strings carrying on ~2 beats into your stop before pausing (designed), and downbeats where you lean ~30 ms late. Your verdict: "worked pretty well".
-- Milestones 4+ not started.
+- **Milestone 4:** **passed at the piano (2026-10-26).** Session `build/sessions/20261026-144424.mid`, six passes: bars 1–8, 9–11, 11–14, 5–8, 1–7, 1–16. String minus piano where both play: median +9 ms, 89% within 60 ms (passes 92–100% apart from the bar 2–4 strings-lead entrance). Your verdict: "all seemed to work well". The outliers: the bar 4 entrance (strings 0.2–1.2 s ahead: M5); and twice (bars 5–6 of the full run, bar 12) you held ~1.5 s longer than the strings' clock, so they carried on into the next bar, then restarted with you, playing those notes a second time. You confirmed those were real stops, so this is the designed stop-and-play-on path.
+- Milestones 5+ not started.
 
 ## Commands
 
@@ -23,7 +24,8 @@ All via `uv run python -m rehearsal.cli <cmd>`:
 | `evaluate --first 1 --last 16 [--method M]` | accuracy on synthetic takes; appends to `build/eval.jsonl` |
 | `evaluate --takes takes [--first --last]` | accuracy on recorded takes against a reference alignment (`rehearsal/reference.py`) |
 | `accompany [--first 1 --last 16]` | strings follow the piano live (M3 test); prints each matched chord, tempo and your timing vs the strings; saves the session (piano + strings) to `build/sessions/` |
-| `session build/sessions/X.mid` | timing of a saved live session: strings vs piano where both play, worst notes |
+| `accompany` (M4) | while the strings wait, say "from bar 9", "from measure 9", "from the pickup to bar 9", "from the top", "again"; or type `9`, `pickup 9`, `top`, `again` + Enter. `--no-voice` turns the microphone off |
+| `session build/sessions/X.mid` | timing of a saved live session, per pass (split wherever the strings fell silent ≥ 0.5 s, each aligned on its own), with what the strings said (stored as MIDI markers since 2026-10-26); worst notes |
 | `accompany --replay take.mid [--listen]` | the same offline on a recorded take: timing stats, plus `build/<take>-with-strings.mid/.wav` |
 
 Tests: `uv run pytest`.
@@ -41,13 +43,14 @@ Tests: `uv run pytest`.
 - `rehearsal/sound.py`: `SoundEngine` protocol, `FluidSynthEngine` (Core Audio, 64 frames x 8 periods ≈ 10.7 ms), `render_wav()` via the fluidsynth CLI.
 - `rehearsal/simulate.py`: replays a take through follower + accompanist in 1 ms virtual steps; timing vs the reference alignment; writes piano + strings MIDI.
 - `rehearsal/session.py`: analysis of saved live sessions (piano aligned with `reference.align`; each string note assigned to the nearest same-pitch score note in expected time).
+- `rehearsal/voice.py`: voice cues: Vosk recogniser constrained to a grammar of rehearsal phrases, `parse()` to a `Cue`, microphone `Listener` (only fed while the strings wait).
 - `rehearsal/live.py`: the live loop: MIDI callback, follower thread, 1 ms scheduler poll.
 - `takes/`: recorded takes from the FP-30 (bars 1–16: clean, rubato, mistakes).
 - `scores/`: the four score files copied from Downloads. `build/` is scratch (piano-only MusicXML, eval log).
 
 ## Decisions
 
-- **Project tooling:** `uv`, Python 3.12. Libraries: partitura 1.9.0, pymatchmaker 0.3.0, mido + python-rtmidi (MIDI I/O; mido is simple and rtmidi is what Matchmaker uses). Sound (M3): pyfluidsynth, now a direct dependency, needs the FluidSynth library: `brew install fluid-synth` (2.6.1). Speech recognition not chosen yet (M4).
+- **Project tooling:** `uv`, Python 3.12. Libraries: partitura 1.9.0, pymatchmaker 0.3.0, mido + python-rtmidi (MIDI I/O; mido is simple and rtmidi is what Matchmaker uses). Sound (M3): pyfluidsynth, now a direct dependency, needs the FluidSynth library: `brew install fluid-synth` (2.6.1). Speech recognition (M4): Vosk 0.3.42 (Apache 2.0; 0.3.45 has no macOS wheel) with `vosk-model-small-en-us-0.15` (68 MB, unpacked into `models/`, gitignored; URL in `voice.py`), microphone via `sounddevice`.
 - **Matchmaker takes a score file and merges all parts**, so the follower is given a piano-only MusicXML exported from the written part (`build/piano.musicxml`). Matchmaker unfolds repeats itself; our `Score` unfolds its own copy the same way so bar lookups agree.
 - **Follower method: `outerhmm`.** On synthetic takes of bars 1–16 (3 seeds each) share of onsets within 0.25 beat of truth:
 
@@ -74,16 +77,22 @@ Tests: `uv run pytest`.
 - **M3 tempo: `alpha` 0.7, `beta` 0.3**, tempo change capped at 8% per chord, starting from the score's ♩ = 63. You play the opening at about ♩ = 82–85; the clock gets there within a bar of eighths.
 - **M3 timing rules:** strings play at the predicted time; if the piano chord for that beat arrives first, they come in at once. Grace notes sound 70 ms before the beat. Notes stop at 95% of their length. Starting: strings at the first beat come in on your first note. Stopping (placeholder for M4): 2 beats past an expected chord with no piano, the strings stop and wait. On your next note they restart where its pitch fits best, from a beat and a half back to a beat on (preferring the next chord), and replay from there. Before this fix the steady run restarted an eighth late after you went back to bar 4's downbeat.
 
+- **M4 restart policy (your call, 2026-10-25):** playing on, or replaying the last couple of chords, needs no cue; going back further needs one. Implemented as: while waiting, a chord restarts the strings only if it matches (Jaccard ≥ 0.6) a score chord from 1.5 beats before the last chord you played to 1 beat after the next one. Otherwise they stay silent ("not sure where you are"), and come back in by themselves if you play on into that window. 0.5 let bar 6's G–D–E♭ pass for bar 8's G–C–E♭. After a restart the next 2 chords must also fit (Jaccard ≥ 0.34) or the strings stop again ("lost you").
+- **M4 stop:** 1.5 beats past an expected chord with no piano, the strings stop starting notes and trail off over 0.8 s: notes ending in that time finish, the rest fade (CC11) and stop. Then they wait and listen. In bars 2–3, where the piano rests, "expected" is your bar 4 entry, so the strings play their passage through.
+- **Voice cues:** only acted on while the strings are trailing off or waiting. After a cue they wait for your first chord at that point (or within half a beat before it). "Again" goes back to the last cue (or bar 1). Bars outside the session's range are refused. The grammar ignores everything else ("could you play louder" → nothing).
+- **Follower after a restart:** Matchmaker only moves forward, so after going back it is ahead of us. Its drift correction is ignored after every restart until it agrees with us again (within 1 beat).
+
 ## Caveats
 
 - The method comparison table is on **synthetic** takes only; outerhmm has been measured on real takes (above), the other methods not.
 - "Lost" counts in the eval (onsets with no estimate in the 150 ms window) are 0–7 of 80; not yet examined.
 - Matchmaker's file mode runs faster than real time; its live mode opens its own MIDI port (CoreMIDI lets us open it too). Its stream thread is not a daemon: `MatchmakerFollower.stop()` must be called or the process hangs on exit.
 - Matchmaker's file mode hangs on a MIDI file with note-ons but no note-offs; always pass complete takes to `simulate.run`.
+- Voice recognition is tested only on synthetic speech. The first live run will ask for microphone permission for the terminal (iTerm).
+- Restarting at a point where the strings play first (e.g. "from bar 3": piano silent until bar 4) skips the strings' notes before your first chord. The count-in for strings-first restarts is still an open question (handoff), for M5.
 - **Offline M3 numbers are on solo takes**, recorded without strings. Bars 2–3 are the strings' alone (piano silent), so their timing there is the clock's own, and you could not have followed them; the bar-2 downbeat shows 0.4–1.1 s "early" for that reason. In the mistakes take the hesitations after wrong notes make the strings carry on 1–2 beats ahead before pausing, as designed. Real numbers need a live test.
 - Bars 25 and 31 of the two transcriptions disagree in the piano part; settle against IMSLP before tuning on them (handoff item).
 
 ## Next
 
-1. Milestone 4: stops and voice restarts. Stop behaviour (carry on 1–2 beats, then trail off rather than cut), local speech recognition for "from bar 9", "from the top", "again".
-2. Worth revisiting in M5: the strings' bars 2–3 and the bar-4 entrance (strings lead; you came in 0.2–1 s after them), and the ~30 ms downbeat lean.
+1. Milestone 5: strings lead (the opening cello melody, tempo plan, coupling). Also revisit the bar 2–4 entrance and the ~30 ms downbeat lean.

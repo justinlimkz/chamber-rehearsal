@@ -186,6 +186,8 @@ dependencies = [
     { name = "pyfluidsynth" },
     { name = "pymatchmaker" },
     { name = "python-rtmidi" },
+    { name = "sounddevice" },
+    { name = "vosk" },
 ]
 
 [package.dev-dependencies]
@@ -200,6 +202,8 @@ requires-dist = [
     { name = "pyfluidsynth", specifier = ">=1.4.0" },
     { name = "pymatchmaker", specifier = ">=0.3.0" },
     { name = "python-rtmidi", specifier = ">=1.5.8" },
+    { name = "sounddevice", specifier = ">=0.5.6" },
+    { name = "vosk", specifier = "==0.3.42" },
 ]
 
 [package.metadata.requires-dev]
@@ -1639,6 +1643,22 @@ wheels = [
 ]
 
 [[package]]
+name = "sounddevice"
+version = "0.5.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/ec/db/0c890e2d9aab9ba284021efc02e1d3aebfecab1b611762d7434602209bcf/sounddevice-0.5.6.tar.gz", hash = "sha256:8ec9fbfde2e32f020b167e348f3ab3bac6625a5f15af524d790108ac7147a410", size = 1120094, upload-time = "2026-08-17T07:55:05.048Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/72/1f/62eef605172bddc1017508469a12f75bc7c4194ece35c734f822795f53b1/sounddevice-0.5.6-py3-none-any.whl", hash = "sha256:de099612311ad81e55d31ccbd83f43ea6bf4d87b48f9b6ea55a1fbcde0eee4e0", size = 32793, upload-time = "2026-08-17T07:54:57.507Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/84/85e719d49cf98b2f406d9ac9c338892286c4448eb42ef0b2625ccf159616/sounddevice-0.5.6-py3-none-macosx_10_6_x86_64.macosx_10_6_universal2.whl", hash = "sha256:e3aef00ad8b1d1740eb66d9a7671eab88a4d2b8fa4ab33498d742e63b65c309c", size = 1009647, upload-time = "2026-08-17T07:54:58.814Z" },
+    { url = "https://files.pythonhosted.org/packages/c5/6f/6292145099f72a153a710245f46ae43e5fb6c77bec1b6086cb76c12dc280/sounddevice-0.5.6-py3-none-win32.whl", hash = "sha256:b36b807eb02abd257198bf84b2af05e4fea199a9d2f0019014169c7136d45e9c", size = 1009627, upload-time = "2026-08-17T07:55:00.401Z" },
+    { url = "https://files.pythonhosted.org/packages/8d/3e/cbc593c31a5f0d817b3fe97e64aa8461bd0f55cb07b67ce1b776296ae336/sounddevice-0.5.6-py3-none-win_amd64.whl", hash = "sha256:7f4162f514f007b0bf25a3ccfed3f1705bc2ec311888a90232729eec4f57a4f4", size = 1009630, upload-time = "2026-08-17T07:55:02.088Z" },
+    { url = "https://files.pythonhosted.org/packages/60/a4/b0c21c9f215a6fd9606b8f8748c21212dc098e5d5a2d93068c50edcf19b4/sounddevice-0.5.6-py3-none-win_arm64.whl", hash = "sha256:c8ae19173e5f27f8c12d4b5eee2dbfe542cee125d591e663e0fb4dfb75246d45", size = 1009630, upload-time = "2026-08-17T07:55:03.689Z" },
+]
+
+[[package]]
 name = "soundfile"
 version = "0.14.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1679,6 +1699,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/a6/d6/cc3c80ac9b2289da4cf46c5d53b05e4327e6f5560a25868d06f9e2213af1/soxr-1.1.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f4977323ef9c3aa3c2a26ff5fe0191c84b8fd759daf7afb1f25a91a55ad8b730", size = 244617, upload-time = "2026-05-03T00:15:07.134Z" },
     { url = "https://files.pythonhosted.org/packages/d3/9e/f7af5fae841ffe32ed8440234ea2ad6adecca3bd92b6101076268c429000/soxr-1.1.0-cp314-cp314t-win_amd64.whl", hash = "sha256:e17d4ef9b0185214b2c0935605ae63f827ea423bc74964be44763d68d2b6c21e", size = 187253, upload-time = "2026-05-03T00:15:08.813Z" },
 ]
+
+[[package]]
+name = "srt"
+version = "3.5.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/b7/4a1bc231e0681ebf339337b0cd05b91dc6a0d701fa852bb812e244b7a030/srt-3.5.3.tar.gz", hash = "sha256:4884315043a4f0740fd1f878ed6caa376ac06d70e135f306a6dc44632eed0cc0", size = 28296, upload-time = "2023-03-28T02:35:44.007Z" }
 
 [[package]]
 name = "standard-aifc"
@@ -1724,6 +1750,18 @@ wheels = [
 ]
 
 [[package]]
+name = "tqdm"
+version = "4.70.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz", hash = "sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4", size = 171846, upload-time = "2026-09-11T07:25:16.601Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a7/03/921a3d3c75785aca9ebfbfcabfbc3a1be12e2ab5265deb026d55a5a3f83e/tqdm-4.70.1-py3-none-any.whl", hash = "sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73", size = 80199, upload-time = "2026-09-11T07:25:14.599Z" },
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1748,6 +1786,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz", hash = "sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63", size = 458972, upload-time = "2026-09-15T19:29:36.253Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3", size = 135717, upload-time = "2026-09-15T19:29:34.577Z" },
+]
+
+[[package]]
+name = "vosk"
+version = "0.3.42"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cffi" },
+    { name = "requests" },
+    { name = "srt" },
+    { name = "tqdm" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/12/eb1feda806615c17608b01b9885bd7d64839225aacba47a27d149974f2a5/vosk-0.3.42-py3-none-linux_armv7l.whl", hash = "sha256:cb7c157b837d6d09991382045d3d8577eb1a0beb8cf16c6f66a8f3a04ce70a26", size = 2384762, upload-time = "2022-05-26T13:43:11.531Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/35/89bc8f422b33dcd0797375c66775e2a2ab9685ecd4a10667fd37ba7348c0/vosk-0.3.42-py3-none-macosx_10_6_universal2.whl", hash = "sha256:631b9ff6515945f92078c546a60deab2eeb4f63489a24526cc90e3164e415ff7", size = 4709760, upload-time = "2022-05-26T13:47:16.07Z" },
+    { url = "https://files.pythonhosted.org/packages/42/ed/cbbbc63426a5d34ccf6e82a0f86aabcf08270edc0b4fde329ba341065847/vosk-0.3.42-py3-none-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:4e8877664e3f915750547893a09ed4f8b155e2ddde97253abd91e4dce082b33c", size = 7172761, upload-time = "2022-05-26T13:43:20.343Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/0b/91a2811175b6b853d54629bdf8a85a141786bdb4587f08365b021bee7b55/vosk-0.3.42-py3-none-win32.whl", hash = "sha256:3c21d4549623e4cae31a49a5d85f9257ac742224f9d34b2fc9a1afb72ca7da59", size = 8592883, upload-time = "2022-05-26T13:43:14.388Z" },
+    { url = "https://files.pythonhosted.org/packages/63/2f/778b70e4008eace243afaa8e5189875bb62a64025809ed92517cd1dbcc1f/vosk-0.3.42-py3-none-win_amd64.whl", hash = "sha256:c1c0cf5ddff71f5ecc0961156f31d40798353c620afc1943ef0c0bc97ea3b5e6", size = 12194334, upload-time = "2022-05-26T13:43:17.567Z" },
 ]
 
 [[package]]
