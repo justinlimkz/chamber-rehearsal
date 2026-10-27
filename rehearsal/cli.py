@@ -113,12 +113,23 @@ def cmd_evaluate(args) -> int:
 def cmd_accompany(args) -> int:
     """Strings follow the piano (the milestone 3 test). Live, or offline from a recorded take."""
     score = Score(args.score)
+    leadership = None
+    if args.lead == "score":
+        from . import annotate
+
+        path = annotate.annotation_path(score.path)
+        if not path.exists():
+            print(f"No leadership annotation at {path}; run `annotate` first.", file=sys.stderr)
+            return 1
+        leadership = annotate.load(path)
     if args.replay:
         from . import simulate
+        from .tempo import BeatClock
         from .sound import render_wav
 
         events = midi_io.read_take(args.replay)
-        res = simulate.run(score, events, args.first, args.last)
+        res = simulate.run(score, events, args.first, args.last, clock=BeatClock(spb=60 / args.tempo),
+                           leadership=leadership)
         for k, v in simulate.summary(res).items():
             print(f"{k:<26}{v}")
         stem = Path(args.replay).stem
@@ -135,7 +146,8 @@ def cmd_accompany(args) -> int:
     if port is None:
         print(f"FP-30 not found. MIDI inputs: {midi_io.list_inputs() or 'none'}", file=sys.stderr)
         return 1
-    saved = live.run(score, port, args.first, args.last, use_voice=not args.no_voice)
+    saved = live.run(score, port, args.first, args.last, use_voice=not args.no_voice, leadership=leadership,
+                     tempo=args.tempo)
     if saved:
         print(f"\nSession saved to {saved}")
     return 0
@@ -167,6 +179,23 @@ def cmd_session(args) -> int:
     for beat, part, x in worst:
         bar, bib = score.bar_at(beat)
         print(f"  bar {bar:>3} beat {bib:4.1f}  {part:<12}{x * 1000:+7.0f} ms")
+    return 0
+
+
+def cmd_annotate(args) -> int:
+    """Draft who leads where, from the score, into a YAML file next to it."""
+    from . import annotate
+
+    score = Score(args.score)
+    path = Path(args.out) if args.out else annotate.annotation_path(score.path)
+    passages = annotate.annotate(score)
+    for p in passages:
+        bars = f"{p.first_bar}-{p.last_bar}" if p.last_bar != p.first_bar else str(p.first_bar)
+        print(f"bars {bars:<8} {p.lead:<8} coupling {p.coupling:<5} {p.reason}")
+    if path.exists() and not args.force:
+        print(f"{path} exists (it may have your edits); not overwritten. --force to replace it.")
+        return 1
+    print(f"wrote {annotate.write(score, passages, path)}")
     return 0
 
 
@@ -217,6 +246,12 @@ def main(argv=None) -> int:
     a.add_argument("--replay", help="a recorded take (.mid): simulate offline, print timing, render audio")
     a.add_argument("--listen", action="store_true", help="with --replay, play the rendered audio")
     a.add_argument("--no-voice", action="store_true", help="live: no microphone; type cues instead")
+    a.add_argument("--lead", choices=["piano", "score"], default="piano",
+                   help="piano: the strings always follow you (milestone 3-4). score: who leads changes by passage, "
+                        "from <score>.lead.yaml (milestone 5)")
+    a.add_argument("--tempo", type=float, default=63.0,
+                   help="starting tempo (quarter notes per minute); with --lead score also the strings' own tempo "
+                        "until a piano-led passage sets another")
     a.set_defaults(fn=cmd_accompany)
 
     se = sub.add_parser("session", help="timing of a saved live session (build/sessions/*.mid)")
@@ -225,6 +260,12 @@ def main(argv=None) -> int:
     se.add_argument("--first", type=int, default=1)
     se.add_argument("--last", type=int, default=16)
     se.set_defaults(fn=cmd_session)
+
+    an = sub.add_parser("annotate", help="draft who leads where (piano, shared, strings) into <score>.lead.yaml")
+    an.add_argument("--score", default=str(DEFAULT_SCORE))
+    an.add_argument("--out", help="default: next to the score, <score>.lead.yaml")
+    an.add_argument("--force", action="store_true", help="overwrite an existing annotation")
+    an.set_defaults(fn=cmd_annotate)
 
     args = p.parse_args(argv)
     return args.fn(args)

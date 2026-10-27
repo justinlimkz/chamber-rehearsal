@@ -16,6 +16,7 @@ import numpy as np
 
 from . import midi_io, reference
 from .accompanist import Accompanist, Out
+from .annotate import Passage
 from .follower import MatchmakerFollower
 from .score import Score
 from .sound import CHANNELS, PROGRAMS
@@ -34,7 +35,7 @@ class SimResult:
 
 def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_bar: int = 16,
         clock: BeatClock | None = None, workdir: Path = Path("build"),
-        cues: list[tuple[float, Cue]] = ()) -> SimResult:
+        cues: list[tuple[float, Cue]] = (), leadership: list[Passage] | None = None) -> SimResult:
     workdir.mkdir(exist_ok=True)
     take_path = workdir / "sim_take.mid"
     midi_io.write_take(events, take_path)
@@ -47,7 +48,7 @@ def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_
     inputs += [(t, 2, c) for t, c in cues]
     inputs.sort(key=lambda x: x[:2])
 
-    acc = Accompanist(score, first_bar, last_bar, clock=clock or BeatClock(spb=60 / 63))
+    acc = Accompanist(score, first_bar, last_bar, clock=clock or BeatClock(spb=60 / 63), leadership=leadership)
     outs: list[Out] = []
     i, now, end = 0, 0.0, max(t for t, _, _ in inputs) + 5.0
     while now < end and not acc.finished:

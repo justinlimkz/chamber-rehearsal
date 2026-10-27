@@ -17,17 +17,21 @@ import mido
 
 from . import midi_io, simulate, voice
 from .accompanist import Accompanist, Out
+from .annotate import Passage
 from .follower import MatchmakerFollower
 from .score import Score
 from .sound import FluidSynthEngine
+from .tempo import BeatClock
 
 POLL_S = 0.001
 
 
 def run(score: Score, port: str, first_bar: int = 1, last_bar: int = 16, use_voice: bool = True,
-        out_dir: Path = Path("build/sessions")) -> Path | None:
+        out_dir: Path = Path("build/sessions"), leadership: list[Passage] | None = None,
+        tempo: float = 63.0) -> Path | None:
     engine = FluidSynthEngine()
-    acc = Accompanist(score, first_bar, last_bar)
+    acc = Accompanist(score, first_bar, last_bar, clock=BeatClock(spb=60 / tempo), leadership=leadership)
+    acc.notices.append((0.0, "lead: by the score's annotation" if leadership else "lead: piano throughout"))
     lock = threading.Lock()
     t0 = time.perf_counter()
     piano: list[midi_io.MidiEvent] = []
