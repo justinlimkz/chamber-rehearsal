@@ -142,12 +142,9 @@ def cmd_accompany(args) -> int:
         return 0
     from . import live
 
-    port = args.port or midi_io.find_piano_input()
-    if port is None:
-        print(f"FP-30 not found. MIDI inputs: {midi_io.list_inputs() or 'none'}", file=sys.stderr)
-        return 1
-    saved = live.run(score, port, args.first, args.last, use_voice=not args.no_voice, leadership=leadership,
-                     tempo=args.tempo)
+    # No keyboard yet is fine: the session looks for it until it is plugged in.
+    saved = live.run(score, args.port, args.first, args.last, use_voice=not args.no_voice, leadership=leadership,
+                     tempo=args.tempo, ui=args.ui, window=not args.no_window)
     if saved:
         print(f"\nSession saved to {saved}")
     return 0
@@ -246,6 +243,9 @@ def main(argv=None) -> int:
     a.add_argument("--replay", help="a recorded take (.mid): simulate offline, print timing, render audio")
     a.add_argument("--listen", action="store_true", help="with --replay, play the rendered audio")
     a.add_argument("--no-voice", action="store_true", help="live: no microphone; type cues instead")
+    a.add_argument("--ui", choices=["app", "plain"], default="app",
+                   help="live: app = a window (press S in it for the music-stand view); plain = lines printed as things happen")
+    a.add_argument("--no-window", action="store_true", help="with --ui app: don't open the window, just print its address")
     a.add_argument("--lead", choices=["piano", "score"], default="piano",
                    help="piano: the strings always follow you (milestone 3-4). score: who leads changes by passage, "
                         "from <score>.lead.yaml (milestone 5)")

@@ -36,6 +36,8 @@ class Score:
             warnings.simplefilter("ignore")  # partitura chatters about unparsed text directions and slurs
             loaded = pt.load_musicxml(str(path))
             self.path = Path(path)
+            self.title = loaded.title or self.path.stem
+            self.composer = loaded.composer or ""
             # Repeats (bars 64-70) are not unfolded by default; unfold for score following.
             # Unfolded parts repeat bar numbers, so `bar` below is the written bar number.
             self.written = list(loaded.parts)

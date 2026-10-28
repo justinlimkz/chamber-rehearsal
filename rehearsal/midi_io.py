@@ -53,7 +53,7 @@ PIANO_HINTS = ("FP-30", "Roland Digital Piano")
 
 
 def find_piano_input(hints: Iterable[str] = PIANO_HINTS) -> str | None:
-    names = list_inputs()
+    names = [n for n in list_inputs() if n]  # a port being unplugged can briefly have no name
     for hint in hints:
         for n in names:
             if hint.lower() in n.lower():
