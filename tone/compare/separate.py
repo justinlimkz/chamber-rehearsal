@@ -3,7 +3,7 @@
 The same separation is run on the real recording and on our synthetic mix, so its artefacts are on both sides; on ours
 the true strings are known (synth/<name>/strings.wav), which measures how good the separation is.
 
-Run: uv run --no-project --python 3.12 --with demucs --with soundfile python -I tone/compare/separate.py real-Theme ours-Theme ...
+Run: uv run --no-project --python 3.12 --with demucs --with soundfile --with pyloudnorm python -I tone/compare/separate.py real-Theme ours-Theme ...
   real-<name>: build/tone/compare/synth/<name>/real.wav if it exists, else the raw excerpt window (for the balance)
   ours-<name>: build/tone/compare/synth/<name>/mix.wav
 Output: build/tone/compare/sep/<tag>/{piano,strings}.wav, balance.json (piano minus strings loudness, LU)

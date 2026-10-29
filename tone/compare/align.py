@@ -47,6 +47,20 @@ def score_chroma(notes, total_beats):
     return C, fps
 
 
+SMOOTH_S = 0.06  # seconds: how far the tempo map may miss an anchor (onsets picked from a full mix are this noisy)
+
+
+def smooth_times(beats, anc):
+    """Beat times from the onset anchors, smoothed: a cubic smoothing spline through the anchors, allowed to miss each
+    by about SMOOTH_S. Joining the anchors with straight lines (as before) made the piano stutter: a misplaced
+    anchor squeezed two quavers together (bar 4 of the Theme, 2026-10-29). Real rubato changes over beats, not
+    within a quaver, so the spline keeps the players' tempo curve and drops the picking noise."""
+    from scipy.interpolate import UnivariateSpline
+    spl = UnivariateSpline(anc[:, 0], anc[:, 1], k=3, s=len(anc) * SMOOTH_S ** 2)
+    t = spl(beats)
+    return np.maximum.accumulate(t + 1e-6 * np.arange(len(t)))  # never backwards
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     s, bars, notes = load_score()
@@ -84,7 +98,7 @@ def main():
                 keep.append((ob, t)); last = t
         anc = np.array(keep)
         beats = np.arange(np.ceil(b0), np.floor(b1) + 1)
-        times = np.interp(beats, anc[:, 0], anc[:, 1]) if len(anc) > 4 else t_path(beats)
+        times = smooth_times(beats, anc) if len(anc) > 4 else t_path(beats)
         bar_rows = []
         for i, (bb, bar) in enumerate(bars):
             nb = bars[i + 1][0] if i + 1 < len(bars) else bb + 3
