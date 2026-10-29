@@ -1,0 +1,82 @@
+import Foundation
+
+// Stand-in for rehearsal/score.py: only what the engine needs (bar starts, bar_at, notes per part),
+// read from the JSON bundle (score.json) instead of MusicXML. Also Passage and COUPLING from annotate.py.
+
+/// Leadership coupling presets (annotate.COUPLING).
+public let COUPLING: [String: Double] = ["piano": 0.7, "shared": 0.4, "strings": 0.15]
+
+/// A leadership passage (annotate.Passage; the `reason` is not needed by the engine).
+public struct Passage: Equatable, Sendable, Decodable {
+    public var firstBar: Int
+    public var lastBar: Int
+    public var lead: String  // "piano" | "shared" | "strings"
+    public var coupling: Double
+
+    public init(firstBar: Int, lastBar: Int, lead: String, coupling: Double) {
+        self.firstBar = firstBar; self.lastBar = lastBar; self.lead = lead; self.coupling = coupling
+    }
+}
+
+/// A note of the score (score.ScoreNote, reduced): onset and duration in quarter-note beats.
+public struct ScoreNote: Equatable, Sendable {
+    public var onsetBeat: Double
+    public var durationBeat: Double
+    public var pitch: Int
+}
+
+public struct ScoreData: Sendable, Decodable {
+    public var title: String
+    public var composer: String
+    /// (quarter-note position, written bar number) for every bar of the unfolded piano part, in order.
+    public var barStarts: [(Double, Int)]
+    public var leadership: [Passage]?
+    private var parts: [String: [ScoreNote]]
+
+    private enum CodingKeys: String, CodingKey { case title, composer, barStarts, parts, leadership }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = try c.decode(String.self, forKey: .title)
+        composer = try c.decode(String.self, forKey: .composer)
+        var bs = try c.nestedUnkeyedContainer(forKey: .barStarts)
+        var starts: [(Double, Int)] = []
+        while !bs.isAtEnd {
+            var p = try bs.nestedUnkeyedContainer()
+            starts.append((try p.decode(Double.self), try p.decode(Int.self)))
+        }
+        barStarts = starts
+        leadership = try c.decodeIfPresent([Passage].self, forKey: .leadership)
+        let raw = try c.decode([String: [[Double]]].self, forKey: .parts)
+        parts = raw.mapValues { rows in
+            rows.map { ScoreNote(onsetBeat: $0[0], durationBeat: $0[1], pitch: Int($0[2])) }
+        }
+    }
+
+    public static func load(path: String) throws -> ScoreData {
+        try JSONDecoder().decode(ScoreData.self, from: Data(contentsOf: URL(fileURLWithPath: path)))
+    }
+
+    /// Notes of a part, sorted by (onset, pitch) as in score.notes(name).
+    public func notes(_ name: String) -> [ScoreNote] { parts[name] ?? [] }
+
+    /// Map an absolute (unfolded) beat position to (written bar, 1-based beat in bar).
+    public func barAt(_ beat: Double) -> (bar: Int, beatInBar: Double) {
+        // searchsorted(side="right") - 1
+        let i = max(0, upperBound(barStarts.map { $0.0 }, beat) - 1)
+        return (barStarts[i].1, beat - barStarts[i].0 + 1)
+    }
+}
+
+/// bisect.bisect_right: index after the last element <= x.
+func upperBound(_ a: [Double], _ x: Double) -> Int {
+    var lo = 0, hi = a.count
+    while lo < hi {
+        let mid = (lo + hi) / 2
+        if x < a[mid] { hi = mid } else { lo = mid + 1 }
+    }
+    return lo
+}
+
+/// Python's format spec `:g` (6 significant digits, trailing zeros removed).
+func fmtG(_ x: Double) -> String { String(format: "%g", x) }

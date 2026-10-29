@@ -35,16 +35,19 @@ class SimResult:
 
 def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_bar: int = 16,
         clock: BeatClock | None = None, workdir: Path = Path("build"),
-        cues: list[tuple[float, Cue]] = (), leadership: list[Passage] | None = None) -> SimResult:
-    workdir.mkdir(exist_ok=True)
-    take_path = workdir / "sim_take.mid"
-    midi_io.write_take(events, take_path)
-    f = MatchmakerFollower(score, take_path, workdir=workdir)
-    for _ in f.positions():
-        pass
-    path = f.mm.score_follower.alignment_path
+        cues: list[tuple[float, Cue]] = (), leadership: list[Passage] | None = None,
+        follow: bool = True) -> SimResult:
+    """`follow=False` leaves out the follower (Matchmaker): the accompanist's own chord matching only."""
     inputs = [(e.time, 0, e.note) for e in events if e.is_onset]
-    inputs += [(float(t), 1, float(b)) for b, t in zip(path[0], path[1])]
+    if follow:
+        workdir.mkdir(exist_ok=True)
+        take_path = workdir / "sim_take.mid"
+        midi_io.write_take(events, take_path)
+        f = MatchmakerFollower(score, take_path, workdir=workdir)
+        for _ in f.positions():
+            pass
+        path = f.mm.score_follower.alignment_path
+        inputs += [(float(t), 1, float(b)) for b, t in zip(path[0], path[1])]
     inputs += [(t, 2, c) for t, c in cues]
     inputs.sort(key=lambda x: x[:2])
 

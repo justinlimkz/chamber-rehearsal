@@ -196,6 +196,21 @@ def cmd_annotate(args) -> int:
     return 0
 
 
+def cmd_bundle(args) -> int:
+    """Pack a piece for the iPad app; with --fixtures, also the engine's golden test cases."""
+    from . import bundle
+
+    score = Score(args.score)
+    out = bundle.export(score, Path(args.out))
+    print(f"wrote {out}")
+    if args.fixtures:
+        takes = sorted(Path("takes").glob("*.mid"))
+        sessions = [Path("build/sessions") / f"{s}.mid" for s in args.sessions]
+        for path in bundle.fixtures(score, Path(args.fixtures), takes, sessions):
+            print(f"wrote {path}")
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="rehearsal")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -268,6 +283,14 @@ def main(argv=None) -> int:
     an.add_argument("--out", help="default: next to the score, <score>.lead.yaml")
     an.add_argument("--force", action="store_true", help="overwrite an existing annotation")
     an.set_defaults(fn=cmd_annotate)
+
+    bu = sub.add_parser("bundle", help="pack a piece for the iPad app (score, engraving, leadership)")
+    bu.add_argument("--score", default=str(DEFAULT_SCORE))
+    bu.add_argument("--out", default="ios/Bundles/schumann-op47-iii")
+    bu.add_argument("--fixtures", help="also write the engine's golden test cases here (from takes/ and --sessions)")
+    bu.add_argument("--sessions", nargs="*", default=["20261028-150330", "20261028-150451"],
+                    help="saved live sessions (build/sessions/<name>.mid) to include as fixtures")
+    bu.set_defaults(fn=cmd_bundle)
 
     args = p.parse_args(argv)
     return args.fn(args)

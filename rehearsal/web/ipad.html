@@ -34,10 +34,10 @@ header { flex: none; display: flex; align-items: center; gap: 14px; padding: cal
 #music { position: relative; padding: 0 6px 60vh; }
 #music svg { display: block; width: 100%; height: auto; }
 #music g.measure { cursor: pointer; }
-.hl { position: absolute; pointer-events: none; border-radius: 4px; display: none; transition: left .08s linear, top .2s, width .08s linear; }
+.hl { position: absolute; pointer-events: none; border-radius: 4px; display: none; }  /* no transitions: moving to the next system, a slide would sweep across the page */
 #now { background: var(--blue-tint); }
 #target { background: var(--amber-tint); outline: 2px solid var(--amber); }
-#head { width: 3px; margin-left: -1.5px; background: var(--blue); border-radius: 2px; transition: none; }
+#head { width: 3px; margin-left: -1.5px; background: var(--blue); border-radius: 2px; }
 #loading { padding: 40px; color: var(--muted); }
 #toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
   background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 16px; opacity: 0; transition: opacity .25s; pointer-events: none; }
