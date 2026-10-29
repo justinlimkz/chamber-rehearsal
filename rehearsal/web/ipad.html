@@ -202,11 +202,12 @@ function render() {
     chip.className = "chip warn"; $("stateText").textContent = "No keyboard: plug in the piano";
     chip.style.color = "";
   } else {
-    chip.className = "chip"; chip.style.color = color; $("stateText").textContent = text;
+    const listening = (st.state === "waiting" || st.state === "ready") && st.mic === "listening";
+    chip.className = "chip"; chip.style.color = color; $("stateText").textContent = text + (listening ? " · listening" : "");
   }
   $("bpm").hidden = !st.bpm;
   if (st.bpm) $("bpm").textContent = "♩ " + Math.round(st.bpm);
-  if (st.lastCue && st.lastCue !== render.lastCue) toast(st.lastCue);
+  if (st.lastCue && st.lastCue !== render.lastCue) toast(st.heard ? "“" + st.heard + "”: " + st.lastCue : st.lastCue);
   render.lastCue = st.lastCue;
 }
 

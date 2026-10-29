@@ -21,7 +21,10 @@ struct RehearsalApp: App {
                 ScoreView(session: s)
                     .ignoresSafeArea(edges: .bottom)
                     .onAppear { UIApplication.shared.isIdleTimerDisabled = true }  // the score stays on screen
-                    .onChange(of: phase) { _, p in if p == .active { s.strings.resume() } }
+                    .onChange(of: phase) { _, p in
+                        if p == .active { s.strings.resume() }
+                        if p == .background { s.save(renew: true) }  // coming back starts a new recording
+                    }
             case .failure(let e):
                 Text("Couldn't start: \(e.localizedDescription)").padding()
             }

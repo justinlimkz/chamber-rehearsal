@@ -192,6 +192,10 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Rehearsal;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Rehearsal listens for where to start (\"from bar nine\", \"again\") while the strings wait.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Rehearsal recognises where to start (\"from bar nine\", \"again\") on the iPad itself.";
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = kz.justinlim.rehearsal;
@@ -212,6 +216,10 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Rehearsal;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Rehearsal listens for where to start (\"from bar nine\", \"again\") while the strings wait.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Rehearsal recognises where to start (\"from bar nine\", \"again\") on the iPad itself.";
+				INFOPLIST_KEY_UIFileSharingEnabled = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				MARKETING_VERSION = 0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = kz.justinlim.rehearsal;

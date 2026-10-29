@@ -5,7 +5,7 @@ import Foundation
 // USB is normally the only one) and connects again whenever one is plugged in or out.
 
 final class Keyboard: @unchecked Sendable {
-    var onNote: (Double, Int) -> Void = { _, _ in }  // (host time in seconds, pitch) for each note-on
+    var onEvent: (Double, PianoEvent) -> Void = { _, _ in }  // (host time in seconds, event): notes and the pedal
     var onChange: (String?) -> Void = { _ in }  // the keyboard's name, or nil when there is none
     private(set) var name: String?
     private var announced = false
@@ -48,11 +48,22 @@ final class Keyboard: @unchecked Sendable {
         for packet in list.unsafeSequence() {
             let t = packet.pointee.timeStamp != 0 ? HostTime.seconds(packet.pointee.timeStamp) : HostTime.now()
             for word in packet.words() where word >> 28 == 0x2 {  // MIDI 1.0 channel voice message
-                let status = (word >> 16) & 0xF0, pitch = Int((word >> 8) & 0x7F), velocity = word & 0x7F
-                if status == 0x90 && velocity > 0 {
-                    onNote(t, pitch)
+                let status = (word >> 16) & 0xF0, data1 = Int((word >> 8) & 0x7F), data2 = Int(word & 0x7F)
+                switch status {
+                case 0x90 where data2 > 0: onEvent(t, PianoEvent(kind: .noteOn, note: data1, value: data2))
+                case 0x80, 0x90: onEvent(t, PianoEvent(kind: .noteOff, note: data1, value: 0))
+                case 0xB0 where data1 == 64: onEvent(t, PianoEvent(kind: .pedal, note: 0, value: data2))
+                default: break
                 }
             }
         }
     }
+}
+
+/// A piano event as recorded (midi_io.MidiEvent): a note on or off, or the sustain pedal (`value` 0-127).
+struct PianoEvent {
+    enum Kind { case noteOn, noteOff, pedal }
+    var kind: Kind
+    var note: Int
+    var value: Int
 }
