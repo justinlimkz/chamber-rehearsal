@@ -144,7 +144,7 @@ def cmd_accompany(args) -> int:
 
     # No keyboard yet is fine: the session looks for it until it is plugged in.
     saved = live.run(score, args.port, args.first, args.last, use_voice=not args.no_voice, leadership=leadership,
-                     tempo=args.tempo, ui=args.ui, window=not args.no_window)
+                     tempo=args.tempo, ui=args.ui, window=not args.no_window, ipad=args.ipad)
     if saved:
         print(f"\nSession saved to {saved}")
     return 0
@@ -246,6 +246,8 @@ def main(argv=None) -> int:
     a.add_argument("--ui", choices=["app", "plain"], default="app",
                    help="live: app = a window (press S in it for the music-stand view); plain = lines printed as things happen")
     a.add_argument("--no-window", action="store_true", help="with --ui app: don't open the window, just print its address")
+    a.add_argument("--ipad", action="store_true",
+                   help="with --ui app: also serve the score view to the iPad over Wi-Fi (anyone on the network can open it)")
     a.add_argument("--lead", choices=["piano", "score"], default="piano",
                    help="piano: the strings always follow you (milestone 3-4). score: who leads changes by passage, "
                         "from <score>.lead.yaml (milestone 5)")

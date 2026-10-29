@@ -44,3 +44,31 @@ def test_server_serves_page_score_events_and_takes_cues(score):
         assert cues == ["9"] and scans == [1] and ended.is_set()
     finally:
         server.stop()
+
+
+def test_engraving_numbers_every_bar(score):
+    from rehearsal import engrave
+
+    svg, anchors = engrave.engrave(score.path)
+    assert engrave.bar_numbers(svg) == list(range(1, 133))
+    assert sorted(anchors) == list(range(1, 133))
+    assert [round(f, 3) for f, _ in anchors[3]] == [0, 0.167, 0.333, 0.5, 0.667, 0.833]  # eighths in 3/4
+    assert all(f'id="{i}"' in svg for f, ids in anchors[3] for i in ids)
+    assert svg.count('class="system"') > 20  # one tall page, a system under another
+
+
+def test_server_serves_ipad_page_and_engraving(score):
+    import gzip
+
+    server = app.AppServer({"bars": []}, lambda: {"state": "ready", "now": 0.0}, lambda t: None, lambda: None,
+                           port=0, score_path=score.path)
+    url = server.start()
+    try:
+        assert b"Rehearsal score" in urllib.request.urlopen(url + "ipad").read()
+        with urllib.request.urlopen(urllib.request.Request(url + "engraving.svg", headers={"Accept-Encoding": "gzip"})) as r:
+            assert r.headers["Content-Encoding"] == "gzip"
+            assert b'data-n="132"' in gzip.decompress(r.read())
+        assert len(json.loads(urllib.request.urlopen(url + "anchors").read())) == 132
+        assert b'data-n="1"' in urllib.request.urlopen(url + "engraving.svg").read()  # plain for clients without gzip
+    finally:
+        server.stop()

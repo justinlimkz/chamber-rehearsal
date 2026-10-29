@@ -10,6 +10,7 @@ dependencies = [
     "python-rtmidi>=1.5.8",
     "pyyaml>=6.0.3",
     "sounddevice>=0.5.6",
+    "verovio>=6.3.0",
     "vosk==0.3.42",
 ]
 

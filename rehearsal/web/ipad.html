@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rehearsal">
+<title>Rehearsal score</title>
+<style>
+:root {
+  --paper: #FCFBF8; --ink: #1B1F24; --muted: #6B7380; --line: #E2E0DA; --bar: #F3F1EC;
+  --blue: #2F6FB3; --blue-tint: rgba(47, 111, 179, .13); --amber: #B87411; --amber-tint: rgba(232, 160, 48, .16);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink);
+  font: 16px/1.3 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
+body { display: flex; flex-direction: column; overflow: hidden; }
+button { font: inherit; color: inherit; }
+header { flex: none; display: flex; align-items: center; gap: 14px; padding: calc(env(safe-area-inset-top) + 6px) 16px 6px;
+  background: var(--bar); border-bottom: 1px solid var(--line); min-height: 56px; }
+.title { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.where { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.where small { font-size: 14px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+[hidden] { display: none !important; }
+.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-size: 15px; font-weight: 600;
+  background: #fff; border: 1px solid var(--line); white-space: nowrap; }
+.chip i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.chip.warn { color: #A23B1E; border-color: #E9B8A8; background: #FCEDE8; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #CFCBC2; background: #fff; font-size: 15px; cursor: pointer; touch-action: manipulation; }
+.btn:active { background: var(--bar); }
+#scroller { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; position: relative; }
+#music { position: relative; padding: 0 6px 60vh; }
+#music svg { display: block; width: 100%; height: auto; }
+#music g.measure { cursor: pointer; }
+.hl { position: absolute; pointer-events: none; border-radius: 4px; display: none; transition: left .08s linear, top .2s, width .08s linear; }
+#now { background: var(--blue-tint); }
+#target { background: var(--amber-tint); outline: 2px solid var(--amber); }
+#head { width: 3px; margin-left: -1.5px; background: var(--blue); border-radius: 2px; transition: none; }
+#loading { padding: 40px; color: var(--muted); }
+#toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
+  background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 16px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+#toast.show { opacity: .92; }
+#ended { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(252, 251, 248, .94);
+  font-size: 22px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="where" id="where">Bar –</div>
+  <span class="chip" id="state"><i></i><span id="stateText">Connecting…</span></span>
+  <div class="title" id="title"></div>
+  <span class="chip" id="bpm" hidden></span>
+  <button class="btn" type="button" data-cue="again">Again</button>
+  <button class="btn" type="button" data-cue="top">From the top</button>
+</header>
+<div id="scroller">
+  <div id="music"><div id="loading">Engraving the score…</div></div>
+</div>
+<div id="toast"></div>
+<div id="ended">Session ended. Start a new one on the Mac, then reload.</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const STATES = {
+  ready: ["Ready", "var(--muted)"], playing: ["With you", "var(--blue)"], trailing: ["You stopped", "var(--amber)"],
+  waiting: ["Waiting", "var(--amber)"], finished: ["Finished", "var(--muted)"],
+};
+let layout = null, st = null, recvAt = 0, anchors = {};
+let bars = {};          // bar number -> {el, system}
+let shownSystem = null, lastTarget = null, toastTimer = 0;
+
+function post(path, body) {
+  fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+}
+function cue(text) { post("/cue", { text }); }
+function toast(text) {
+  $("toast").textContent = text; $("toast").classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
+}
+document.querySelectorAll("[data-cue]").forEach((b) => b.addEventListener("click", () => cue(b.dataset.cue)));
+
+// Bar boxes in the music's own coordinates, from the staff lines: barline to barline, top staff to
+// bottom staff. (Not the bar's whole drawing: slurs and ties reach into the next bar.)
+function box(n) {
+  const b = bars[n];
+  if (!b) return null;
+  const host = $("music").getBoundingClientRect();
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+  for (const line of b.el.querySelectorAll(":scope > g.staff > path")) {
+    const r = line.getBoundingClientRect();
+    left = Math.min(left, r.left); right = Math.max(right, r.right);
+    top = Math.min(top, r.top); bottom = Math.max(bottom, r.bottom);
+  }
+  if (left === Infinity) ({ left, right, top, bottom } = b.el.getBoundingClientRect());
+  return { left: left - host.left, width: right - left, top: top - host.top - 10, height: bottom - top + 20 };
+}
+
+// Where the playhead is across a bar, as a fraction of its width: through the notes as they sound
+// (notes aren't spaced evenly in time), from the server's list of where each bar's notes start.
+function across(n, frac) {
+  const b = bars[n];
+  if (!b.points) {
+    const m = box(n), host = $("music").getBoundingClientRect();
+    b.points = [];
+    for (const [f, ids] of anchors[n] || []) {
+      const xs = ids.map((id) => {
+        const el = document.getElementById(id), head = el && (el.querySelector(".notehead") || el);
+        if (!head) return Infinity;
+        const r = head.getBoundingClientRect();
+        return r.left + r.width / 2 - host.left;
+      });
+      const x = Math.min(...xs);
+      if (x !== Infinity) b.points.push([f, (x - m.left) / m.width]);
+    }
+    if (!b.points.length || b.points[0][0] > 0) b.points.unshift([0, 0]);
+    b.points.push([1, 1]);
+  }
+  const p = b.points;
+  let i = 0;
+  while (i + 2 < p.length && p[i + 1][0] <= frac) i++;
+  const [f0, x0] = p[i], [f1, x1] = p[i + 1];
+  return x0 + (x1 - x0) * (f1 > f0 ? (frac - f0) / (f1 - f0) : 0);
+}
+function place(el, r) {
+  if (!r) { el.style.display = "none"; return; }
+  Object.assign(el.style, { display: "block", left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
+}
+
+// Scroll a system at a time: when the music moves into the next system, bring it to the top (the one
+// after it is then in view below, to read ahead).
+function showSystem(n) {
+  const b = bars[n];
+  if (!b || b.system === shownSystem) return;
+  shownSystem = b.system;
+  const host = $("music").getBoundingClientRect(), s = b.system.getBoundingClientRect();
+  glide($("scroller"), s.top - host.top - 12);
+}
+// A quick glide (a quarter of a second, easing out) rather than a jump, so the eye can follow.
+function glide(el, to) {
+  const from = el.scrollTop, t0 = performance.now(), ms = 250;
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    el.scrollTop = from + (to - from) * (1 - Math.pow(1 - k, 3));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function currentBeat() {
+  if (st.state === "playing" || st.state === "trailing") {
+    const now = st.now + (performance.now() - recvAt) / 1000;
+    return Math.min(st.clock.b0 + (now - st.clock.t0) / st.clock.spb, st.endBeat - 1e-3);
+  }
+  return null;
+}
+function barAt(beat) {
+  const bs = layout.bars;
+  let i = 0;
+  while (i + 1 < bs.length && bs[i + 1].start <= beat + 1e-9) i++;
+  return bs[i];
+}
+
+function frame() {
+  requestAnimationFrame(frame);
+  if (!st || !layout || !Object.keys(bars).length) return;
+  const beat = currentBeat();
+  const waiting = st.state === "waiting" || st.state === "ready";
+  const target = waiting && st.restartBeat != null ? barAt(st.restartBeat).n : null;
+  if (beat != null) {
+    const bar = barAt(beat), r = box(bar.n);
+    place($("now"), r);
+    if (r) {
+      const frac = Math.max(0, Math.min(1, (beat - bar.start) / bar.beats));
+      place($("head"), { left: r.left + across(bar.n, frac) * r.width, top: r.top, width: 3, height: r.height });
+    }
+    $("where").innerHTML = "Bar " + bar.n + "<small>beat " + (Math.floor(beat - bar.start) + 1) + "</small>";
+    showSystem(bar.n);
+  } else {
+    $("head").style.display = "none";
+    const last = st.lastBeat != null ? barAt(st.lastBeat).n : null;
+    place($("now"), last != null && !waiting ? box(last) : null);
+    $("where").innerHTML = target != null ? "From bar " + target : last != null ? "Bar " + last : "Bar –";
+  }
+  place($("target"), target != null ? box(target) : null);
+  if (target !== lastTarget) {  // a new place to start: show it, but leave the page alone otherwise
+    lastTarget = target;
+    if (target != null) showSystem(target);
+  }
+}
+
+function render() {
+  const [text, color] = STATES[st.state] || ["", "var(--muted)"];
+  const chip = $("state");
+  if (!st.keyboard) {
+    chip.className = "chip warn"; $("stateText").textContent = "No keyboard: plug in the piano";
+    chip.style.color = "";
+  } else {
+    chip.className = "chip"; chip.style.color = color; $("stateText").textContent = text;
+  }
+  $("bpm").hidden = !st.bpm;
+  if (st.bpm) $("bpm").textContent = "♩ " + Math.round(st.bpm);
+  if (st.lastCue && st.lastCue !== render.lastCue) toast(st.lastCue);
+  render.lastCue = st.lastCue;
+}
+
+// Tap a bar to start there (while stopped, as with "from bar …").
+$("music").addEventListener("click", (e) => {
+  const m = e.target.closest && e.target.closest("g.measure");
+  if (!m || !st) return;
+  if (st.state === "playing" || st.state === "trailing") { toast("Stop playing first, then tap where to start"); return; }
+  const n = m.getAttribute("data-n");
+  cue(n);
+  toast("From bar " + n);
+});
+
+Promise.all([fetch("/score").then((r) => r.json()), fetch("/engraving.svg").then((r) => r.text()),
+             fetch("/anchors").then((r) => r.json())]).then(([l, svg, a]) => {
+  layout = l; anchors = a;
+  $("title").textContent = l.title + " · bars " + l.firstBar + "–" + l.lastBar;
+  $("music").innerHTML = svg + '<div class="hl" id="target"></div><div class="hl" id="now"></div><div class="hl" id="head"></div>';
+  for (const m of $("music").querySelectorAll("g.measure[data-n]")) {
+    const n = m.getAttribute("data-n");
+    if (!bars[n]) bars[n] = { el: m, system: m.closest("g.system") || m };
+  }
+  const es = new EventSource("/events");
+  es.onmessage = (e) => { st = JSON.parse(e.data); recvAt = performance.now(); render(); };
+  es.addEventListener("end", () => { es.close(); $("ended").style.display = "flex"; });
+  window.addEventListener("resize", () => { shownSystem = null; for (const b of Object.values(bars)) delete b.points; });
+  requestAnimationFrame(frame);
+}).catch(() => { $("loading").textContent = "Couldn't load the score. Is the session still running on the Mac?"; });
+</script>
+</body>
+</html>

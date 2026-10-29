@@ -68,9 +68,10 @@ def typed_cue(line: str) -> voice.Cue | None:
 
 def run(score: Score, port: str | None, first_bar: int = 1, last_bar: int = 16, use_voice: bool = True,
         out_dir: Path = Path("build/sessions"), leadership: list[Passage] | None = None,
-        tempo: float = 63.0, ui: str = "app", window: bool = True) -> Path | None:
+        tempo: float = 63.0, ui: str = "app", window: bool = True, ipad: bool = False) -> Path | None:
     """`port`: the keyboard's MIDI input, or None for the first that looks like the FP-30. `ui`: "app"
-    (a window: the live view and the music-stand view) or "plain" (lines printed as things happen)."""
+    (a window: the live view and the music-stand view) or "plain" (lines printed as things happen).
+    `ipad`: also serve the score view to other devices on the network (with "app")."""
     engine = FluidSynthEngine()
     acc = Accompanist(score, first_bar, last_bar, clock=BeatClock(spb=60 / tempo), leadership=leadership)
     acc.notices.append((0.0, "lead: by the score's annotation" if leadership else "lead: piano throughout"))
@@ -139,11 +140,15 @@ def run(score: Score, port: str | None, first_bar: int = 1, last_bar: int = 16, 
             with lock:
                 return view.app_state(time.perf_counter() - t0, listener, keyboard.name)
 
-        server = app.AppServer(app.score_layout(score, acc), state, on_line, ended.set, keyboard.scan)
+        server = app.AppServer(app.score_layout(score, acc), state, on_line, ended.set, keyboard.scan,
+                               host="0.0.0.0" if ipad else "127.0.0.1", score_path=score.path)
         url = server.start()
         if window:
             app.open_window(url)
         print(f"Rehearsal window: {url}  (S for the music-stand view)")
+        if ipad:
+            threading.Thread(target=server.engraving, daemon=True).start()  # ready before the iPad asks
+            print("On the iPad (same Wi-Fi), open in Safari: " + "  or  ".join(server.network_urls()))
     print(f"Ready: bars {first_bar}-{last_bar}. Play, or say where to start (\"from bar 9\"). Ctrl-C to quit.")
     shown_log = shown_notes = 0
     try:
