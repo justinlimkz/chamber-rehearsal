@@ -34,9 +34,10 @@ struct RehearsalApp: App {
                 .preferredColorScheme(.light)  // the score is printed paper; the whole app follows it, even in dark mode
                 .onAppear {
                     UIApplication.shared.isIdleTimerDisabled = Settings.keepAwakeOn  // the score stays on screen
-                    // Simulator screenshots: REHEARSAL_OPEN=<piece> opens it straight away.
-                    if Rig.silent, let id = ProcessInfo.processInfo.environment["REHEARSAL_OPEN"], let p = library.piece(id) {
-                        open(p, from: nil, rig: rig)
+                    // Simulator screenshots: REHEARSAL_OPEN=<piece>[@<bar>] opens it straight away.
+                    if Rig.silent, let arg = ProcessInfo.processInfo.environment["REHEARSAL_OPEN"] {
+                        let parts = arg.split(separator: "@").map(String.init)
+                        if let p = library.piece(parts[0]) { open(p, from: parts.count > 1 ? Int(parts[1]) : nil, rig: rig) }
                     }
                 }
                 .onChange(of: phase) { _, p in

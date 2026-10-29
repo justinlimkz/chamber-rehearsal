@@ -1,6 +1,7 @@
 """The score engraved for reading at the piano (the iPad view): Verovio draws the MusicXML as one tall
 SVG, a system under another, which the page scrolls through as you play. Also the piano part on its own
-(`only="Piano"`), larger, for rehearsing from your own part.
+(`only="Piano"`), larger, for rehearsing from your own part, with its lines breaking at the same bars as
+the full score's (`breaks`), so switching between them keeps your place on the page.
 
 Each bar's group carries its number (`data-n`), so the page can find, highlight and tap bars by the
 same numbers the follower and the cues use. Sized for an iPad Pro 12.9" in portrait: two systems of
@@ -24,12 +25,13 @@ OPTIONS = {
 }
 
 
-PART_PAGE_WIDTH = 1400  # the piano part alone: two staves a system, so a narrower page (drawn larger on screen)
+PART_PAGE_WIDTH = 1600  # the piano part alone: a narrower page, so drawn larger on screen (same bars a line)
 
 
-def part_only(path: Path, name: str) -> str:
+def part_only(path: Path, name: str, breaks: list[int] | None = None) -> str:
     """The MusicXML with only the part whose name starts with `name` (the others' <score-part> and <part>
-    removed, so everything else in the piano's part is kept as written)."""
+    removed, so everything else in the piano's part is kept as written). `breaks`: the bars that begin a
+    line (the transcription's own line and page breaks are dropped)."""
     if zipfile.is_zipfile(path):
         with zipfile.ZipFile(path) as z:
             inner = next(n for n in z.namelist() if n.endswith((".xml", ".musicxml")) and not n.startswith("META-INF"))
@@ -46,21 +48,32 @@ def part_only(path: Path, name: str) -> str:
     xml = re.sub(r'<part id="(?!' + re.escape(keep) + r'")[^"]+">.*?</part>\s*', "", xml, flags=re.S)
     # brackets around the removed parts
     xml = re.sub(r'<part-group[^>]*/>\s*|<part-group[^>]*[^/]>.*?</part-group>\s*', "", xml, flags=re.S)
+    if breaks:
+        xml = re.sub(r'\s+new-(?:system|page)="yes"', "", xml)
+        for bar in breaks[1:]:
+            xml = re.sub(r'(<measure number="' + str(bar) + r'"[^>]*>)', r'\1<print new-system="yes"/>', xml, count=1)
     return xml
 
 
-def engrave(path: Path, only: str | None = None) -> tuple[str, dict[int, list[tuple[float, list[str]]]]]:
+def systems(svg: str) -> list[int]:
+    """The bar each line of the engraving begins with."""
+    return [int(re.search(r'class="measure"[^>]*data-n="(\d+)"', s).group(1))
+            for s in re.split(r'<g [^>]*class="system"', svg)[1:]]
+
+
+def engrave(path: Path, only: str | None = None,
+            breaks: list[int] | None = None) -> tuple[str, dict[int, list[tuple[float, list[str]]]]]:
     """The whole score as one SVG (about half a second for the Schumann), and for each bar where its
     notes start: (fraction of the bar, ids of the notes and rests starting there), so the playhead can
     pass over the notes as they sound rather than move evenly across the bar (notes aren't spaced
     evenly in time: clefs, grace notes and accidentals take room)."""
     tk = verovio.toolkit(False)  # fonts come from RESOURCES, set next
     tk.setResourcePath(str(RESOURCES))  # the default is only found on the main thread
-    tk.setOptions(OPTIONS | ({"pageWidth": PART_PAGE_WIDTH} if only else {}))
+    tk.setOptions(OPTIONS | ({"pageWidth": PART_PAGE_WIDTH} if only else {}) | ({"breaks": "encoded"} if breaks else {}))
     verovio.enableLog(verovio.LOG_ERROR)  # not the MusicXML import's warnings, during a session
     if only:
         with tempfile.NamedTemporaryFile("w", suffix=".musicxml", delete=False) as f:
-            f.write(part_only(path, only))
+            f.write(part_only(path, only, breaks))
         path = Path(f.name)
     if not tk.loadFile(str(path)):
         raise ValueError(f"Verovio could not read {path}")

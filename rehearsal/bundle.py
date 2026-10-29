@@ -48,7 +48,8 @@ def export(score: Score, out: Path) -> Path:
     svg, anchors = engrave.engrave(score.path)
     (out / "engraving.svg").write_text(svg)
     (out / "anchors.json").write_text(json.dumps(anchors))
-    svg, anchors = engrave.engrave(score.path, only="Piano")  # the piano part alone, larger
+    # the piano part alone, larger, its lines breaking where the full score's do
+    svg, anchors = engrave.engrave(score.path, only="Piano", breaks=engrave.systems(svg))
     (out / "engraving-piano.svg").write_text(svg)
     (out / "anchors-piano.json").write_text(json.dumps(anchors))
     return out

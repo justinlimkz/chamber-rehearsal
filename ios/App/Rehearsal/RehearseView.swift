@@ -61,12 +61,13 @@ struct RehearseView: View {
             }
             ViewThatFits(in: .horizontal) {  // on a smaller iPad, icons stand in for some of the words
                 buttons(compact: false)
+                buttons(compact: false, short: true)
                 buttons(compact: true)
             }
         }
     }
 
-    private func buttons(compact: Bool) -> some View {
+    private func buttons(compact: Bool, short: Bool = false) -> some View {
         GlassEffectContainer(spacing: 12) {
             HStack(spacing: 12) {
                 Button { onClose() } label: { Label("Pieces", systemImage: "chevron.backward") }
@@ -80,7 +81,7 @@ struct RehearseView: View {
                     .buttonStyle(.glass)
                     .popover(isPresented: $picking) { BarPicker(session: session, live: live) { picking = false } }
                 Button { session.cue(live.state == "paused" ? "resume" : "pause") } label: {
-                    Label(live.state == "paused" ? "Resume strings" : "Pause strings",
+                    Label(live.state == "paused" ? (short ? "Resume" : "Resume strings") : (short ? "Pause" : "Pause strings"),
                           systemImage: live.state == "paused" ? "play.fill" : "pause.fill")
                 }
                 .buttonStyle(.glass)
