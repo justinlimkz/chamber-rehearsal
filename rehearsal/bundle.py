@@ -3,9 +3,9 @@
 `<out>/score.json`: title, composer, work and movement (from `<score>.piece.yaml`, if there is one), the
 bars (unfolded, in playing order) and every note of every part in quarter-note beats, each string part's
 loudness curve from the score's dynamics (`dynamics.py`: [beat, dB from mf] points, linear between them),
-and who leads where (the `.lead.yaml`, if there is one). `<out>/engraving.svg` and `<out>/anchors.json`:
-the score as drawn for reading (`engrave.py`), and `engraving-piano.svg`, `anchors-piano.json`: the piano
-part alone. Nothing needs annotating by hand: the leadership file and the piece file are optional.
+and who leads where (the `.lead.yaml`, if there is one). `<out>/score.musicxml`: the score itself, which
+the iPad engraves with Verovio to its screen, with the parts and size chosen there. Nothing needs
+annotating by hand: the leadership file and the piece file are optional.
 
 Golden fixtures for the app's engine (`fixtures`): recorded takes run through the Python accompanist,
 with what it played. The Swift port must play the same notes at the same times. The follower
@@ -45,13 +45,9 @@ def export(score: Score, out: Path) -> Path:
                        for p in leadership] if leadership else None,
     }
     (out / "score.json").write_text(json.dumps(data))
-    svg, anchors = engrave.engrave(score.path)
-    (out / "engraving.svg").write_text(svg)
-    (out / "anchors.json").write_text(json.dumps(anchors))
-    # the piano part alone, larger, its lines breaking where the full score's do
-    svg, anchors = engrave.engrave(score.path, only="Piano", breaks=engrave.systems(svg))
-    (out / "engraving-piano.svg").write_text(svg)
-    (out / "anchors-piano.json").write_text(json.dumps(anchors))
+    (out / "score.musicxml").write_text(engrave.musicxml(score.path))  # the iPad engraves it itself
+    for old in ("engraving.svg", "anchors.json", "engraving-piano.svg", "anchors-piano.json"):  # older bundles'
+        (out / old).unlink(missing_ok=True)
     return out
 
 

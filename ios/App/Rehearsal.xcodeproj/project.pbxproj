@@ -11,6 +11,7 @@
 		A10000000000000000000102 /* ipad.html in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* ipad.html */; };
 		A10000000000000000000103 /* schumann-op47-iii in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* schumann-op47-iii */; };
 		A10000000000000000000104 /* strings.sf2 in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000204 /* strings.sf2 */; };
+		A10000000000000000000105 /* verovio-toolkit-wasm.js in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000205 /* verovio-toolkit-wasm.js */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +19,7 @@
 		A10000000000000000000202 /* ipad.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = ipad.html; path = ../../rehearsal/web/ipad.html; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000203 /* schumann-op47-iii */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "schumann-op47-iii"; path = "../Bundles/schumann-op47-iii"; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000204 /* strings.sf2 */ = {isa = PBXFileReference; lastKnownFileType = file; name = strings.sf2; path = ../Sounds/strings.sf2; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000205 /* verovio-toolkit-wasm.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "verovio-toolkit-wasm.js"; path = "../Web/verovio-toolkit-wasm.js"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -55,6 +57,7 @@
 				A10000000000000000000202 /* ipad.html */,
 				A10000000000000000000203 /* schumann-op47-iii */,
 				A10000000000000000000204 /* strings.sf2 */,
+				A10000000000000000000205 /* verovio-toolkit-wasm.js */,
 			);
 			name = Shared;
 			sourceTree = "<group>";
@@ -133,6 +136,7 @@
 				A10000000000000000000102 /* ipad.html in Resources */,
 				A10000000000000000000103 /* schumann-op47-iii in Resources */,
 				A10000000000000000000104 /* strings.sf2 in Resources */,
+				A10000000000000000000105 /* verovio-toolkit-wasm.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

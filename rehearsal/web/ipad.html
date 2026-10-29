@@ -42,6 +42,8 @@ header { flex: none; display: flex; align-items: center; gap: 14px; padding: cal
 #toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
   background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 16px; opacity: 0; transition: opacity .25s; pointer-events: none; }
 #toast.show { opacity: .92; }
+#engraving { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+  background: rgba(252, 251, 248, .7); color: var(--muted); font-size: 18px; pointer-events: none; }
 /* In the iPad app the status strip and the controls are the app's own: the page only draws the score. */
 .native header, .native #toast { display: none !important; }
 #ended { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(252, 251, 248, .94);
@@ -62,6 +64,7 @@ header { flex: none; display: flex; align-items: center; gap: 14px; padding: cal
   <div id="music"><div id="loading">Engraving the score…</div></div>
 </div>
 <div id="toast"></div>
+<div id="engraving">Engraving…</div>
 <div id="ended">Session ended. Start a new one on the Mac, then reload.</div>
 
 <script>
@@ -189,7 +192,9 @@ function frame() {
     showSystem(bar.n);
   } else {
     $("head").style.display = "none";
-    const last = st.lastBeat != null ? barAt(st.lastBeat).n : null;
+    // Paused: the bar the strings will come back at, in blue (it's where you are, practising alone).
+    const lastBeat = st.state === "paused" ? (st.restartBeat ?? st.lastBeat) : st.lastBeat;
+    const last = lastBeat != null ? barAt(lastBeat).n : null;
     place($("now"), last != null && !waiting ? box(last) : null);
     $("where").innerHTML = target != null ? "From bar " + target : last != null ? "Bar " + last : "Bar –";
   }
@@ -231,15 +236,17 @@ $("music").addEventListener("click", (e) => {
   toast("From bar " + n);
 });
 
-Promise.all([fetch("/score").then((r) => r.json()), fetch("/engraving.svg").then((r) => r.text()),
-             fetch("/anchors").then((r) => r.json())]).then(([l, svg, a]) => {
-  layout = l; anchors = a;
-  $("title").textContent = l.title + " · bars " + l.firstBar + "–" + l.lastBar;
+// Show an engraving: the SVG plus where each bar's notes start (`anchors`).
+function show(svg, a) {
+  anchors = a; bars = {}; shownSystem = null; lastTarget = null;
   $("music").innerHTML = svg + '<div class="hl" id="target"></div><div class="hl" id="now"></div><div class="hl" id="head"></div>';
   for (const m of $("music").querySelectorAll("g.measure[data-n]")) {
     const n = m.getAttribute("data-n");
     if (!bars[n]) bars[n] = { el: m, system: m.closest("g.system") || m };
   }
+}
+
+function start() {
   if (native) {
     window.receive = receive;
   } else {
@@ -247,8 +254,127 @@ Promise.all([fetch("/score").then((r) => r.json()), fetch("/engraving.svg").then
     es.onmessage = (e) => receive(JSON.parse(e.data));
     es.addEventListener("end", () => { es.close(); $("ended").style.display = "flex"; });
   }
-  window.addEventListener("resize", () => { shownSystem = null; for (const b of Object.values(bars)) delete b.points; });
   requestAnimationFrame(frame);
+}
+
+// In the iPad app the score is engraved here, on the iPad, by Verovio (the same engraver the Mac uses, built
+// for the web): to the screen's width (again when it turns), with the parts and the size chosen in the app
+// (`setView`). A view without every part breaks its lines at the same bars as the full score, so switching
+// keeps your place. Without the MusicXML (the Mac's server, older pieces) the page shows the Mac's engraving.
+const ENGRAVE = {
+  pageHeight: 60000, adjustPageHeight: true, scale: 38, breaks: "auto",
+  pageMarginTop: 40, pageMarginBottom: 40, pageMarginLeft: 60, pageMarginRight: 60,
+  spacingSystem: 10, spacingStaff: 6, header: "auto", footer: "none", svgViewBox: true,
+  svgAdditionalAttribute: ["measure@n"],
+};
+const UNITS_PER_PX = 2100 / 1032;  // the Mac's page width (2100) on a 13-inch iPad in portrait (1032 points)
+const PART_WIDTH = 1600 / 2100;  // fewer parts: a narrower page, so drawn larger with the same bars a line
+let tk = null, xml = null, view = { parts: null, size: 1 }, engravedFor = "", partNames = [];
+
+function loadVerovio() {
+  return new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "/verovio.js";
+    sc.onload = () => verovio.module.onRuntimeInitialized = () => resolve(new verovio.toolkit());
+    sc.onerror = reject;
+    document.head.appendChild(sc);
+  });
+}
+
+// The MusicXML with only the chosen parts (the rest, and their brackets, taken out) and, with `breaks`, a
+// new line at each of those bars (the transcription's own line and page breaks dropped).
+function partsOnly(parts, breaks) {
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const keep = new Set();
+  for (const sp of [...doc.querySelectorAll("part-list > score-part")]) {
+    const name = (sp.querySelector("part-name")?.textContent || "").trim();
+    if (parts.some((p) => name.toLowerCase().startsWith(p.toLowerCase()))) keep.add(sp.id); else sp.remove();
+  }
+  for (const g of [...doc.querySelectorAll("part-list > part-group")]) g.remove();
+  for (const part of [...doc.querySelectorAll("score-partwise > part")]) if (!keep.has(part.id)) part.remove();
+  if (breaks) {
+    for (const pr of doc.querySelectorAll("print")) { pr.removeAttribute("new-system"); pr.removeAttribute("new-page"); }
+    const at = new Set(breaks.slice(1).map(String));
+    for (const m of doc.querySelectorAll("part > measure")) {
+      if (at.has(m.getAttribute("number"))) {
+        const pr = doc.createElement("print"); pr.setAttribute("new-system", "yes"); m.insertBefore(pr, m.firstChild);
+      }
+    }
+  }
+  return new XMLSerializer().serializeToString(doc);
+}
+
+function render(data, pageWidth, breaks) {
+  tk.setOptions({ ...ENGRAVE, pageWidth: Math.round(pageWidth), breaks: breaks ? "encoded" : "auto" });
+  if (!tk.loadData(data)) throw new Error("Verovio could not read the score");
+  const svg = tk.renderToSVG(1);
+  // engrave.engrave's anchors: per bar, (fraction of the bar, ids of the notes and rests starting there)
+  const number = {};
+  for (const m of svg.matchAll(/<g id="([^"]+)" class="measure"[^>]*data-n="(\d+)"/g)) number[m[1]] = +m[2];
+  const tm = tk.renderToTimemap({ includeMeasures: true, includeRests: true });
+  const starts = tm.filter((e) => e.measureOn).map((e) => [e.qstamp, e.measureOn]);
+  const a = {}, first = {};
+  let k = -1;
+  for (const e of tm) {
+    while (k + 1 < starts.length && starts[k + 1][0] <= e.qstamp) k++;
+    if (k < 0 || !(starts[k][1] in number)) continue;
+    const n = number[starts[k][1]], ids = (e.on || []).concat(e.restsOn || []);
+    if (!(n in first)) first[n] = k;
+    if (first[n] !== k || !ids.length) continue;
+    const s0 = starts[k][0], s1 = k + 1 < starts.length ? starts[k + 1][0] : s0 + 3;
+    (a[n] = a[n] || []).push([(e.qstamp - s0) / (s1 - s0), ids]);
+  }
+  return { svg, anchors: a };
+}
+
+function systems(svg) {
+  return svg.split(/<g [^>]*class="system"/).slice(1).map((s) => +s.match(/class="measure"[^>]*data-n="(\d+)"/)[1]);
+}
+
+function engrave() {
+  const width = $("music").clientWidth || window.innerWidth;
+  const parts = view.parts && view.parts.length && view.parts.length < partNames.length ? view.parts : null;
+  const key = [Math.round(width), view.size, parts ? parts.join(",") : "all"].join("|");
+  if (key === engravedFor) return;
+  engravedFor = key;
+  $("engraving").style.display = "flex";
+  setTimeout(() => {  // let the "Engraving" note show first
+    try {
+      const pageWidth = width * UNITS_PER_PX / view.size;
+      let r = render(xml, pageWidth);
+      if (parts) r = render(partsOnly(parts, systems(r.svg)), pageWidth * PART_WIDTH, true);
+      const keep = st && (st.restartBeat ?? st.lastBeat);
+      show(r.svg, r.anchors);
+      if (keep != null && layout) showSystem(barAt(keep).n);
+    } catch (e) {
+      $("music").innerHTML = '<div id="loading">Couldn\'t engrave the score: ' + e.message + "</div>";
+    }
+    $("engraving").style.display = "none";
+  }, 30);
+}
+
+// From the app: which parts to show and how large (1 = the Mac's size on a 13-inch iPad in portrait).
+window.setView = (v) => { view = { ...view, ...v }; if (tk) engrave(); };
+
+fetch("/score").then((r) => r.json()).then(async (l) => {
+  layout = l;
+  $("title").textContent = l.title + " · bars " + l.firstBar + "–" + l.lastBar;
+  const mx = native ? await fetch("/musicxml") : null;
+  if (mx && mx.ok) {
+    xml = await mx.text();
+    partNames = [...xml.matchAll(/<part-name>([^<]*)<\/part-name>/g)].map((m) => m[1].trim());
+    if (native) { const v = await fetch("/view"); if (v.ok) view = { ...view, ...(await v.json()) }; }
+    $("loading").textContent = "Engraving the score…";
+    tk = await loadVerovio();
+    engrave();
+    let resized = 0;
+    window.addEventListener("resize", () => { clearTimeout(resized); resized = setTimeout(engrave, 250); });
+  } else {
+    const [svg, a] = await Promise.all([fetch("/engraving.svg").then((r) => r.text()), fetch("/anchors").then((r) => r.json())]);
+    show(svg, a);
+    window.addEventListener("resize", () => { shownSystem = null; for (const b of Object.values(bars)) delete b.points; });
+  }
+  start();
 }).catch(() => { $("loading").textContent = "Couldn't load the score. Is the session still running on the Mac?"; });
 </script>
 </body>

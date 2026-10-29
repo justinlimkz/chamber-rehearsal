@@ -2,15 +2,29 @@ import SwiftUI
 import WebKit
 
 // The engraved score that follows you: the same page the Mac serves to Safari (rehearsal/web/ipad.html),
-// in a web view, without its header (the app draws the status strip and the controls). Its files come from
-// the app and the piece's folder through the `rehearsal:` scheme; the session's state goes in ten times a
-// second (`receive`); taps on bars come back as cues.
+// in a web view, without its header (the app draws the status strip and the controls). The page engraves the
+// piece's MusicXML itself, with Verovio, to the screen's width and the parts and size chosen here (`setView`).
+// Its files come from the app and the piece's folder through the `rehearsal:` scheme; the session's state goes
+// in ten times a second (`receive`); taps on bars come back as cues.
+
+/// Which parts the score shows (nil: all) and how large (1 = the Mac's size on a 13-inch iPad in portrait).
+struct ScoreLook: Codable, Equatable {
+    var parts: [String]? = nil
+    var size: Double = 1
+
+    static let key = "scoreLook"
+    static var saved: ScoreLook {
+        (UserDefaults.standard.data(forKey: key)).flatMap { try? JSONDecoder().decode(ScoreLook.self, from: $0) } ?? ScoreLook()
+    }
+    func save() { UserDefaults.standard.set(try? JSONEncoder().encode(self), forKey: Self.key) }
+    var json: String { String(decoding: (try? JSONEncoder().encode(self)) ?? Data("{}".utf8), as: UTF8.self) }
+}
 
 struct ScoreView: UIViewRepresentable {
     let session: Session
-    var pianoOnly = false  // the piano part alone, if the piece has it drawn
+    var look = ScoreLook()
 
-    func makeCoordinator() -> Coordinator { Coordinator(session, pianoOnly: pianoOnly) }
+    func makeCoordinator() -> Coordinator { Coordinator(session, look: look) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -27,9 +41,9 @@ struct ScoreView: UIViewRepresentable {
     }
 
     func updateUIView(_ web: WKWebView, context: Context) {
-        if context.coordinator.pianoOnly != pianoOnly {
-            context.coordinator.pianoOnly = pianoOnly
-            web.reload()
+        if context.coordinator.look != look {
+            context.coordinator.look = look
+            web.evaluateJavaScript("window.setView && setView(\(look.json))")
         }
     }
 
@@ -40,12 +54,10 @@ struct ScoreView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKURLSchemeHandler, WKScriptMessageHandler {
         let session: Session
-        var pianoOnly: Bool
+        var look: ScoreLook
         private var timer: Timer?
 
-        init(_ session: Session, pianoOnly: Bool) { self.session = session; self.pianoOnly = pianoOnly }
-
-        private var suffix: String { pianoOnly && session.piece.hasPianoPart ? "-piano" : "" }
+        init(_ session: Session, look: ScoreLook) { self.session = session; self.look = look }
 
         func stop() { timer?.invalidate() }
 
@@ -70,11 +82,20 @@ struct ScoreView: UIViewRepresentable {
             case "/score":
                 body = try? JSONSerialization.data(withJSONObject: session.layout())
                 type = "application/json"
+            case "/verovio.js":
+                body = try? Data(contentsOf: Bundle.main.url(forResource: "verovio-toolkit-wasm", withExtension: "js")!)
+                type = "text/javascript"
+            case "/musicxml":
+                body = try? Data(contentsOf: piece.appendingPathComponent("score.musicxml"))
+                type = "application/xml"
+            case "/view":
+                body = Data(look.json.utf8)
+                type = "application/json"
             case "/engraving.svg":
-                body = try? Data(contentsOf: piece.appendingPathComponent("engraving\(suffix).svg"))
+                body = try? Data(contentsOf: piece.appendingPathComponent("engraving.svg"))
                 type = "image/svg+xml"
             case "/anchors":
-                body = try? Data(contentsOf: piece.appendingPathComponent("anchors\(suffix).json"))
+                body = try? Data(contentsOf: piece.appendingPathComponent("anchors.json"))
                 type = "application/json"
             default:
                 body = nil; type = "text/plain"

@@ -2,8 +2,8 @@ import Foundation
 import RehearsalCore
 import UniformTypeIdentifiers
 
-// The pieces the app can rehearse: folders made on the Mac by `rehearsal bundle` (score.json, engraving.svg,
-// anchors.json). The ones that come with the app live in its bundle; added ones are copied into
+// The pieces the app can rehearse: folders made on the Mac by `rehearsal bundle` (score.json for the strings,
+// score.musicxml for the page to engrave; older bundles have the Mac's engraving.svg and anchors.json instead). The ones that come with the app live in its bundle; added ones are copied into
 // Documents/Pieces (Files › On My iPad › Rehearsal › Pieces). The library lists works with their movements
 // under them, from each bundle's composer, work and movement.
 
@@ -17,15 +17,14 @@ struct Piece: Identifiable, Hashable, Sendable {
     let strings: [String]  // the parts the strings play, in score order
     let builtIn: Bool
 
-    static let files = ["score.json", "engraving.svg", "anchors.json"]
-    static let pianoFiles = ["engraving-piano.svg", "anchors-piano.json"]  // the piano part alone (newer bundles)
+    static let files = ["score.json", "score.musicxml", "engraving.svg", "anchors.json"]  // the ones there are
     static let type = UTType(exportedAs: "kz.justinlim.rehearsal.piece")  // a bundle folder named *.rehearsal
 
     /// Read a bundle folder's description (not its notes: the session loads those).
     init(url: URL, builtIn: Bool) throws {
-        for f in Self.files where !FileManager.default.fileExists(atPath: url.appendingPathComponent(f).path) {
-            throw PieceError.missing(f)
-        }
+        let has = { FileManager.default.fileExists(atPath: url.appendingPathComponent($0).path) }
+        if !has("score.json") { throw PieceError.missing("score.json") }
+        if !has("score.musicxml") && !(has("engraving.svg") && has("anchors.json")) { throw PieceError.missing("score.musicxml") }
         let score = try ScoreData.load(path: url.appendingPathComponent("score.json").path)
         self.id = url.deletingPathExtension().lastPathComponent
         self.url = url
@@ -37,9 +36,8 @@ struct Piece: Identifiable, Hashable, Sendable {
         strings = STRING_PARTS.filter { score.partNames.contains($0) }
     }
 
-    var hasPianoPart: Bool {
-        Self.pianoFiles.allSatisfy { FileManager.default.fileExists(atPath: url.appendingPathComponent($0).path) }
-    }
+    /// The score engraved on the iPad (any parts, any size), not the Mac's fixed engraving.
+    var engravable: Bool { FileManager.default.fileExists(atPath: url.appendingPathComponent("score.musicxml").path) }
 
     /// "Robert Schumann" -> "Schumann"
     var composerSurname: String { composer.split(separator: " ").last.map(String.init) ?? composer }
@@ -121,7 +119,7 @@ final class Library {
         let dest = Self.folder.appendingPathComponent(piece.id, isDirectory: true)
         if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
-        for f in Piece.files + Piece.pianoFiles where fm.fileExists(atPath: piece.url.appendingPathComponent(f).path) {
+        for f in Piece.files where fm.fileExists(atPath: piece.url.appendingPathComponent(f).path) {
             try fm.copyItem(at: piece.url.appendingPathComponent(f), to: dest.appendingPathComponent(f))
         }
         reload()

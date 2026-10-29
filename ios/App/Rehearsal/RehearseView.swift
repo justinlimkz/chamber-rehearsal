@@ -12,7 +12,8 @@ struct RehearseView: View {
     @State private var picking = false
     @State private var mixing = false
     @State private var listing = false
-    @AppStorage("pianoOnly") private var pianoOnly = false
+    @State private var look = ScoreLook.saved
+    @State private var styling = false
 
     init(session: Session, onClose: @escaping () -> Void) {
         self.session = session
@@ -23,7 +24,7 @@ struct RehearseView: View {
     var body: some View {
         VStack(spacing: 0) {
             StatusStrip(live: live)
-            ScoreView(session: session, pianoOnly: pianoOnly)
+            ScoreView(session: session, look: look)
                 .ignoresSafeArea(edges: .bottom)
         }
         .background(Paper.color)
@@ -37,13 +38,14 @@ struct RehearseView: View {
         .animation(.easeInOut(duration: 0.35), value: live.stopped)
         .toolbar(.hidden, for: .navigationBar)
         .onDisappear { live.stop() }
-        .task {  // Simulator screenshots: REHEARSAL_SHOW=bar|strings|recordings opens that panel
+        .task {  // Simulator screenshots: REHEARSAL_SHOW=bar|strings|recordings|score opens that panel
             guard Rig.silent else { return }
             try? await Task.sleep(for: .seconds(2))
             switch ProcessInfo.processInfo.environment["REHEARSAL_SHOW"] {
             case "bar": picking = true
             case "strings": mixing = true
             case "recordings": listing = true
+            case "score": styling = true
             default: break
             }
         }
@@ -87,12 +89,11 @@ struct RehearseView: View {
                 .buttonStyle(.glass)
                 .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
                 .disabled(live.state == "finished")
-                if session.piece.hasPianoPart {
-                    Button { pianoOnly.toggle() } label: {
-                        Label(pianoOnly ? "Full score" : "Piano part", systemImage: pianoOnly ? "music.note.list" : "pianokeys")
-                    }
-                    .buttonStyle(.glass)
-                    .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                if session.piece.engravable {
+                    Button { styling = true } label: { Label("Score", systemImage: "music.note.list") }
+                        .buttonStyle(.glass)
+                        .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                        .popover(isPresented: $styling) { ScorePanel(parts: session.score.partNames, look: $look) }
                 }
                 Button { mixing = true } label: { Image(systemName: "slider.horizontal.3").accessibilityLabel("Strings and tempo") }
                     .buttonStyle(.glass)
@@ -159,8 +160,9 @@ struct StatusStrip: View {
     }
 
     private var waitingLike: Bool { ["waiting", "ready"].contains(live.state) }
-    private var barCaption: String { live.stopped && live.restarting ? "From bar" : live.state == "ready" ? "Start at bar" : "Bar" }
-    private var barColor: Color { live.stopped && live.restarting ? Paper.amber : Paper.ink }
+    private var cued: Bool { live.stopped && live.restarting && live.state != "paused" }  // paused: you're there, alone
+    private var barCaption: String { cued ? "From bar" : live.state == "ready" ? "Start at bar" : "Bar" }
+    private var barColor: Color { cued ? Paper.amber : Paper.ink }
 
     private var word: String {
         if live.keyboard == nil { return "No piano" }
@@ -342,4 +344,49 @@ struct StringsPanel: View {
         session.rig.strings.setVolume(part, v)
         Settings.setPartVolume(part, v)
     }
+}
+
+/// What the score shows: the parts (the piano part alone, for rehearsing from your own part, or any of them)
+/// and the size of the music. The page engraves it again to fit, keeping the full score's line breaks.
+struct ScorePanel: View {
+    let parts: [String]  // the score's parts, sorted
+    @Binding var look: ScoreLook
+
+    private var ordered: [String] { STRING_PARTS.filter(parts.contains) + parts.filter { !STRING_PARTS.contains($0) } }
+    private var shown: Set<String> { Set(look.parts ?? ordered) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Score").font(.headline)
+            HStack(spacing: 10) {
+                Button("Full score") { set(nil) }
+                    .buttonStyle(.bordered).tint(look.parts == nil ? Paper.blue : Paper.ink)
+                Button("Piano part") { set(["Piano"]) }
+                    .buttonStyle(.bordered).tint(look.parts == ["Piano"] ? Paper.blue : Paper.ink)
+            }
+            .controlSize(.large)
+            ForEach(ordered, id: \.self) { part in
+                Toggle(part == "Violoncello" ? "Cello" : part, isOn: Binding(
+                    get: { shown.contains(part) },
+                    set: { on in
+                        var s = shown
+                        if on { s.insert(part) } else if s.count > 1 { s.remove(part) }
+                        set(s.count == ordered.count ? nil : ordered.filter(s.contains))
+                    }))
+            }
+            Divider()
+            HStack {
+                Text("Size \(Int((look.size * 100).rounded()))%").monospacedDigit()
+                Spacer()
+                Stepper("", value: Binding(get: { look.size }, set: { look.size = $0; look.save() }), in: 0.6...1.8, step: 0.1)
+                    .labelsHidden()
+            }
+            Text("The music is engraved again to fit; a part on its own keeps the full score's lines.")
+                .font(.footnote).foregroundStyle(Paper.muted)
+        }
+        .padding(24)
+        .frame(width: 340)
+    }
+
+    private func set(_ p: [String]?) { look.parts = p; look.save() }
 }

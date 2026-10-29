@@ -28,16 +28,20 @@ OPTIONS = {
 PART_PAGE_WIDTH = 1600  # the piano part alone: a narrower page, so drawn larger on screen (same bars a line)
 
 
+def musicxml(path: Path) -> str:
+    """The MusicXML text of a .musicxml/.xml file or a compressed .mxl."""
+    if zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as z:
+            inner = next(n for n in z.namelist() if n.endswith((".xml", ".musicxml")) and not n.startswith("META-INF"))
+            return z.read(inner).decode("utf-8")
+    return Path(path).read_text()
+
+
 def part_only(path: Path, name: str, breaks: list[int] | None = None) -> str:
     """The MusicXML with only the part whose name starts with `name` (the others' <score-part> and <part>
     removed, so everything else in the piano's part is kept as written). `breaks`: the bars that begin a
     line (the transcription's own line and page breaks are dropped)."""
-    if zipfile.is_zipfile(path):
-        with zipfile.ZipFile(path) as z:
-            inner = next(n for n in z.namelist() if n.endswith((".xml", ".musicxml")) and not n.startswith("META-INF"))
-            xml = z.read(inner).decode("utf-8")
-    else:
-        xml = Path(path).read_text()
+    xml = musicxml(path)
     keep = None
     for pid, pname in re.findall(r'<score-part id="([^"]+)">\s*<part-name>([^<]*)</part-name>', xml):
         if pname.lower().startswith(name.lower()):
