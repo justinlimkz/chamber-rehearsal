@@ -58,9 +58,6 @@ let MIN_SCORE = 0.0  // below this the chord is treated as stray notes
 let BETA_PER_COUPLING = 0.3 / 0.7  // period correction scales with the coupling
 let WAIT_EXTRA = 0.15  // extra phase correction when the pianist is late: the strings wait a little
 let HOME_PULL = 0.3  // per chord, at coupling 0, the period moves this fraction back to the strings' tempo
-// A lone piano note written off the quaver grid (a syncopated melody note, as in bar 31) says little about the
-// beat: it moves the clock only a little and leaves the tempo alone (accompanist.OFFBEAT_ALPHA).
-let OFFBEAT_ALPHA = 0.2
 
 /// A voice cue (voice.Cue).
 public struct Cue: Equatable, Sendable, CustomStringConvertible {
@@ -538,9 +535,6 @@ public final class Accompanist {
 
     /// Correct the clock for a piano chord, coupled as the passage says (if there is an annotation).
     private func correct(_ t: Double, _ beat: Double) -> Double {
-        if pianoPitches[beat]!.count == 1 && (2 * beat).truncatingRemainder(dividingBy: 1) != 0 {
-            return clock.correct(t, beat, prevBeat: lastBeat, alpha: OFFBEAT_ALPHA, beta: 0.0)
-        }
         guard let p = passageAt(beat) else {
             return clock.correct(t, beat, prevBeat: lastBeat)
         }

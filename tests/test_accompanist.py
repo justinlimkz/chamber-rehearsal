@@ -183,24 +183,3 @@ def test_pause_ignores_the_piano_until_resume(score):
     assert acc.on_cue(99.0, Cue("resume")).startswith("resume: strings come in with you at bar")
     assert not acc.paused and acc.waiting
 
-
-def test_offbeat_melody_note_played_early_does_not_rush_the_strings(score):
-    """Bar 31: the right hand's F#4, G4, Eb4 are written a semiquaver after the beat; played on the quavers
-    instead, the strings' beat 3 must still come with the piano's (it came 160 ms early, 2026-10-29)."""
-    spb = 60 / 70
-    starts = {bar: b for b, bar in reversed(score.bar_starts())}
-    events, t = [], 1.0
-    for n in score.notes("Piano"):
-        if 29 <= n.bar <= 31:
-            beat = n.onset_beat - starts[29]
-            if n.bar == 31 and (n.onset_beat * 4) % 2 == 1:  # the semiquaver-late notes, played a semiquaver early
-                beat -= 0.25
-            events.append((1.0 + beat * spb, n.pitch))
-    from rehearsal.midi_io import MidiEvent
-    take = sorted([MidiEvent(time, "note_on", p, 64) for time, p in events] +
-                  [MidiEvent(time + 0.2, "note_off", p, 0) for time, p in events], key=lambda e: e.time)
-    res = simulate.run(score, take, 29, 32, clock=BeatClock(spb=spb), follow=False)
-    beat3 = starts[31] + 2
-    strings = [o.time for o in res.outs if o.kind == "on" and o.beat == beat3]
-    piano = 1.0 + (beat3 - starts[29]) * spb
-    assert strings and all(abs(s - piano) < 0.06 for s in strings)
