@@ -31,6 +31,7 @@ struct RehearsalApp: App {
                         }
                 }
                 .tint(Paper.blue)
+                .preferredColorScheme(.light)  // the score is printed paper; the whole app follows it, even in dark mode
                 .onAppear {
                     UIApplication.shared.isIdleTimerDisabled = Settings.keepAwakeOn  // the score stays on screen
                     // Simulator screenshots: REHEARSAL_OPEN=<piece> opens it straight away.

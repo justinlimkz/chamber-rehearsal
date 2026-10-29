@@ -55,7 +55,6 @@ struct LibraryView: View {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
-            .frame(maxWidth: 820, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Paper.color)
