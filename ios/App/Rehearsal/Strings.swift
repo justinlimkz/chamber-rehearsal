@@ -24,6 +24,12 @@ final class Strings: @unchecked Sendable {
         var fillGap = true
         var reverbMix: Float = 22  // percent wet
         var reverb = AVAudioUnitReverbPreset.mediumHall
+        // Player-side expression (off in the app until a listening test picks it; tone/ renders it). The engine
+        // sends one velocity and no dynamics, and a looped sample sounds the same for as long as it is held.
+        var swell = false  // CC11: a note held past ~0.4 s grows by about 2 dB, then settles back after 3 s
+        var vibrato: ClosedRange<Int>? = nil  // CC1 per bowed (not joined-on) note, random in this range: the depth
+                                              // of the font's vibrato LFO (fonts from tone/ set its rate and delay)
+        var vibratoParts: Set<String>? = nil  // nil: every part (recordings with their own vibrato need none)
     }
 
     private struct Note { let sampler: AVAudioUnitSampler; let start: Double; let id: Int }
@@ -31,6 +37,9 @@ final class Strings: @unchecked Sendable {
         let attack: AVAudioUnitSampler, legato: AVAudioUnitSampler
         var sounding: [Int: Note] = [:]  // by pitch, including notes held past their engine note-off
         var lastOff = -Double.infinity  // engine time of the part's last note-off
+        var expr = 127  // the engine's expression (it fades parts out when the pianist stops)
+        var held = 0.0, level = 0.88  // swell: seconds since the last note-on, and the swell's current gain
+        var sent = 127  // CC11 last sent
         init(_ attack: AVAudioUnitSampler, _ legato: AVAudioUnitSampler) { self.attack = attack; self.legato = legato }
     }
 
@@ -40,6 +49,8 @@ final class Strings: @unchecked Sendable {
     private var parts: [String: Part] = [:]
     private var nextID = 0
     private let lock = NSLock()
+    private var ticking = false
+    private var rng = SystemRandomNumberGenerator()
 
     convenience init() throws {
         guard let font = Bundle.main.url(forResource: "strings", withExtension: "sf2") else {
@@ -83,6 +94,10 @@ final class Strings: @unchecked Sendable {
             }
             let joins = o.time - p.lastOff < style.joinS || p.sounding.values.contains { o.time - $0.start > style.chordS }
             let s = style.legato && joins ? p.legato : p.attack
+            if let depth = style.vibrato, !joins, style.vibratoParts?.contains(o.part) ?? true {  // vary the vibrato from one bow to the next
+                s.sendController(1, withValue: UInt8(Int.random(in: depth, using: &rng)), onChannel: 0)
+            }
+            if style.swell { p.held = 0; sendExpr(p); tick() }
             nextID += 1
             p.sounding[o.pitch] = Note(sampler: s, start: o.time, id: nextID)
             s.startNote(UInt8(o.pitch), withVelocity: UInt8(o.velocity), onChannel: 0)
@@ -99,8 +114,40 @@ final class Strings: @unchecked Sendable {
             if hold <= 0 { stop(); return }
             after(hold) { [self] in lock.lock(); defer { lock.unlock() }; stop() }
         default:  // expression (CC11), on both samplers
-            for s in [p.attack, p.legato] { s.sendController(11, withValue: UInt8(o.velocity), onChannel: 0) }
+            p.expr = o.velocity
+            sendExpr(p)
         }
+    }
+
+    private static let tickS = 0.02
+
+    /// Swell: the target gain rises from 0.88 to 1 (CC11 acts about squared: 2 dB) between 0.4 and 1.6 s into a
+    /// note and falls back between 3 and 6 s; the gain follows it with a 0.25 s lag, so a line of short notes
+    /// neither pumps nor swells much.
+    private func tick() {
+        guard !ticking else { return }
+        ticking = true
+        after(Self.tickS) { [self] in
+            lock.lock(); defer { lock.unlock() }
+            ticking = false
+            var any = false
+            for p in parts.values where !p.sounding.isEmpty || abs(p.level - 0.88) > 0.005 {
+                p.held += Self.tickS
+                let ss = { (x: Double) in let c = min(max(x, 0), 1); return c * c * (3 - 2 * c) }
+                let target = 0.88 + 0.12 * (ss((p.held - 0.4) / 1.2) - ss((p.held - 3) / 3))
+                p.level += (target - p.level) * Self.tickS / 0.25
+                sendExpr(p)
+                any = true
+            }
+            if any { tick() }
+        }
+    }
+
+    private func sendExpr(_ p: Part) {
+        let v = style.swell ? Int((Double(p.expr) * p.level).rounded()) : p.expr
+        guard v != p.sent else { return }
+        p.sent = v
+        for s in [p.attack, p.legato] { s.sendController(11, withValue: UInt8(v), onChannel: 0) }
     }
 
     /// After an interruption (a call, Siri) or a route change, start the engine again.

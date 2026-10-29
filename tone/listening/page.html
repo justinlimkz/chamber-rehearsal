@@ -1,0 +1,239 @@
+<title>String Listening Booth</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one column of clips; in each, the hidden versions as rows you play, switch between at the same moment, and rate. */
+:root {
+  --bg: #F7F6F2; --card: #FFFFFF; --ink: #1B1F24; --muted: #5E6672; --line: #E1DED6;
+  --accent: #2F6FB3; --accent-soft: #E3ECF6; --amber: #A3660E; --amber-soft: #FBF1E1; --good: #2E7D4F;
+  --display: "Spectral", "Iowan Old Style", Georgia, serif;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171A; --card: #1E2125; --ink: #E8EAED; --muted: #9AA3AE; --line: #30353B;
+    --accent: #85B3E8; --accent-soft: #1E2D3F; --amber: #E3A955; --amber-soft: #33281A; --good: #6CC193; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171A; --card: #1E2125; --ink: #E8EAED; --muted: #9AA3AE; --line: #30353B;
+  --accent: #85B3E8; --accent-soft: #1E2D3F; --amber: #E3A955; --amber-soft: #33281A; --good: #6CC193; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); }
+.wrap { max-width: 860px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 120px; display: flex; flex-direction: column; gap: 32px; }
+h1, h2 { font-family: var(--display); font-weight: 500; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(32px, 5vw, 44px); line-height: 1.05; }
+h2 { font-size: 24px; line-height: 1.2; }
+p { margin: 0; max-width: 65ch; }
+.muted { color: var(--muted); }
+.eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.intro { display: flex; flex-direction: column; gap: 12px; }
+.how { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 12px; font-size: 15px; }
+.how div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.how b { display: block; margin-bottom: 2px; }
+.clip { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+.clip-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.status { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status.saved { color: var(--good); }
+.listen { font-size: 15px; color: var(--muted); }
+.ref { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--amber-soft); font-size: 15px; }
+.ref small { color: var(--muted); }
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 6px 14px; align-items: center; padding: 12px; border-radius: 12px; border: 1px solid var(--line); }
+.row.playing { border-color: var(--accent); background: var(--accent-soft); }
+.play { width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--accent); color: var(--card); font: 600 18px var(--body); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.play.small { width: 40px; height: 40px; font-size: 14px; background: var(--amber); }
+.play:focus-visible, .chip:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.rate { display: flex; align-items: center; gap: 12px; }
+.rate input { flex: 1 1 auto; min-width: 0; accent-color: var(--accent); }
+.score { width: 92px; text-align: right; font-variant-numeric: tabular-nums; font-size: 15px; }
+.score b { font-size: 20px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 999px; padding: 3px 10px; font: 13px var(--body); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
+.prog { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.prog i { display: block; height: 100%; width: 0; background: var(--accent); }
+textarea { width: 100%; min-height: 56px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: 15px/1.4 var(--body); padding: 10px; resize: vertical; }
+.bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--card); border-top: 1px solid var(--line);
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.bar-in { max-width: 860px; margin: 0 auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.bar-in .grow { flex: 1 1 auto; min-width: 0; font-size: 15px; }
+.btn { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: 600 15px var(--body); cursor: pointer; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.note { padding: 12px 14px; border-radius: 12px; background: var(--amber-soft); font-size: 15px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <div class="eyebrow" id="roundLabel">Listening round</div>
+    <h1>Which strings sound most like real players?</h1>
+    <p class="muted" id="introText">Each clip below comes in several hidden versions, in a different order in every clip. Rate each one against the others.</p>
+    <div class="how">
+      <div><b>Play and switch</b>Tap a letter to play it. Tap another and it carries on from the same moment, so you hear the difference directly.</div>
+      <div><b>Rate 0–100</b>100 is a real player, 0 is clearly a machine. Use the whole range within each clip.</div>
+      <div><b>Tick what's wrong</b>Only for the ones that bother you. It tells us what to work on next.</div>
+    </div>
+    <p class="note" id="saveNote" hidden></p>
+  </header>
+  <main id="clips" class="wrap" style="padding:0;gap:24px"></main>
+</div>
+<div class="bar"><div class="bar-in">
+  <div class="grow" id="progress">Nothing rated yet.</div>
+  <button class="btn" type="button" id="copy" hidden>Copy ratings</button>
+  <button class="btn pri" type="button" id="done">I'm done</button>
+</div></div>
+
+<script>
+const ROUND = /*ROUND*/{"id":"r0","title":"Example","clips":[]}/*END*/;
+const ISSUES = ["gaps between notes", "buzzy / static", "no vibrato", "too much vibrato", "harsh attack", "thin or wrong tone", "too dry", "too much room", "balance"];
+const $ = (id) => document.getElementById(id);
+let db = null, current = null;  // the row playing: {clip, key, audio, row}
+const state = {};  // clip id -> {scores, issues, order, note}
+
+function seeded(seed) { let s = seed; return () => (s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296; }
+function shuffle(arr, rnd) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+let seed;
+try { seed = Number(localStorage.getItem("seed-" + ROUND.id)) || 0; } catch (e) { seed = 0; }
+if (!seed) { seed = Math.floor(Math.random() * 1e9) + 1; try { localStorage.setItem("seed-" + ROUND.id, String(seed)); } catch (e) {} }
+const rnd = seeded(seed);
+const LETTERS = "ABCDEFGHJK";
+
+function stop() {
+  if (!current) return;
+  current.audio.pause();
+  current.row.classList.remove("playing");
+  current.btn.textContent = current.label;
+  current = null;
+}
+function play(clip, entry, row, btn, label) {
+  const at = current && current.clip === clip.id ? current.audio.currentTime : 0;
+  if (current && current.audio === entry.audio) { stop(); return; }
+  stop();
+  const a = entry.audio;
+  try { a.currentTime = Math.min(at, (a.duration || at + 1) - 0.05); } catch (e) {}
+  a.play().catch(() => {});
+  row.classList.add("playing");
+  btn.textContent = "❚❚";
+  current = { clip: clip.id, audio: a, row, btn, label };
+}
+
+function render() {
+  const host = $("clips");
+  $("roundLabel").textContent = "Listening round · " + ROUND.title;
+  for (const clip of ROUND.clips) {
+    const s = state[clip.id] = { scores: {}, issues: {}, note: "", order: shuffle(clip.versions.map((v) => v.key), rnd) };
+    const card = document.createElement("section");
+    card.className = "clip";
+    card.innerHTML = '<div class="clip-head"><h2></h2><span class="status"></span></div><p class="listen"></p>';
+    card.querySelector("h2").textContent = clip.title;
+    card.querySelector(".listen").textContent = clip.listen;
+    const status = card.querySelector(".status");
+    if (clip.ref) {
+      const ref = document.createElement("div");
+      ref.className = "ref";
+      const a = new Audio(clip.ref.src); a.preload = "none";
+      ref.innerHTML = '<button class="play small" type="button" aria-label="Play the real recording">▶</button><div><b>Real players, for your ear</b> <small></small></div>';
+      ref.querySelector("small").textContent = "· " + clip.ref.caption;
+      const b = ref.querySelector("button");
+      b.addEventListener("click", () => play(clip, { audio: a }, ref, b, "▶"));
+      a.addEventListener("ended", stop);
+      card.appendChild(ref);
+    }
+    const rows = document.createElement("div");
+    rows.className = "rows";
+    s.order.forEach((key, i) => {
+      const v = clip.versions.find((x) => x.key === key), label = LETTERS[i];
+      const entry = { audio: new Audio(v.src) };
+      entry.audio.preload = "auto";
+      const row = document.createElement("div");
+      row.className = "row";
+      const id = clip.id + "-" + label;
+      row.innerHTML = '<button class="play" type="button"></button><div class="main"><div class="rate"><input type="range" min="0" max="100" step="1" value="50"><span class="score"><b>–</b></span></div><div class="prog"><i></i></div><div class="chips"></div></div>';
+      const btn = row.querySelector(".play"); btn.textContent = label; btn.setAttribute("aria-label", "Play version " + label);
+      const range = row.querySelector("input"); range.id = id; range.setAttribute("aria-label", "Rating for version " + label);
+      const out = row.querySelector(".score b");
+      btn.addEventListener("click", () => play(clip, entry, row, btn, label));
+      entry.audio.addEventListener("ended", stop);
+      entry.audio.addEventListener("timeupdate", () => { row.querySelector(".prog i").style.width = (100 * entry.audio.currentTime / (entry.audio.duration || 1)) + "%"; });
+      range.addEventListener("input", () => { s.scores[key] = Number(range.value); out.textContent = range.value; changed(clip, status); });
+      const chips = row.querySelector(".chips");
+      for (const issue of ISSUES) {
+        const c = document.createElement("button");
+        c.type = "button"; c.className = "chip"; c.textContent = issue; c.setAttribute("aria-pressed", "false");
+        c.addEventListener("click", () => {
+          const on = c.getAttribute("aria-pressed") !== "true";
+          c.setAttribute("aria-pressed", String(on));
+          const set = new Set(s.issues[key] || []); on ? set.add(issue) : set.delete(issue);
+          s.issues[key] = [...set];
+          changed(clip, status);
+        });
+        chips.appendChild(c);
+      }
+      rows.appendChild(row);
+    });
+    card.appendChild(rows);
+    const ta = document.createElement("textarea");
+    ta.id = clip.id + "-note"; ta.placeholder = "Anything else about this clip (optional)";
+    ta.addEventListener("input", () => { s.note = ta.value; changed(clip, status); });
+    card.appendChild(ta);
+    host.appendChild(card);
+  }
+  progress();
+}
+
+const timers = {};
+function changed(clip, status) {
+  progress();
+  status.className = "status"; status.textContent = db ? "Saving…" : "";
+  clearTimeout(timers[clip.id]);
+  timers[clip.id] = setTimeout(() => save(clip, status), 700);
+}
+async function save(clip, status) {
+  if (!db) return;
+  const s = state[clip.id];
+  try {
+    await db.doc("ratings/" + ROUND.id + "--" + clip.id).set({ round: ROUND.id, clip: clip.id, scores: s.scores, issues: s.issues, note: s.note, order: s.order, at: new Date().toISOString() });
+    status.className = "status saved"; status.textContent = "Saved";
+  } catch (e) {
+    status.className = "status"; status.textContent = "Not saved: " + (e && e.message || "try again");
+  }
+}
+function progress() {
+  let rated = 0, total = 0;
+  for (const clip of ROUND.clips) { total += clip.versions.length; rated += Object.keys(state[clip.id]?.scores || {}).length; }
+  $("progress").textContent = rated ? rated + " of " + total + " versions rated" : "Nothing rated yet.";
+}
+function summary() {
+  return JSON.stringify({ round: ROUND.id, ratings: ROUND.clips.map((c) => ({ clip: c.id, ...state[c.id] })) });
+}
+
+$("done").addEventListener("click", async () => {
+  stop();
+  if (db) {
+    try {
+      await db.doc("ratings/" + ROUND.id + "--done").set({ round: ROUND.id, done: true, at: new Date().toISOString() });
+      $("progress").textContent = "Thanks. Your ratings are saved; tell Claude you're done.";
+    } catch (e) { $("progress").textContent = "Couldn't save. Use Copy ratings and paste them to Claude."; $("copy").hidden = false; }
+  } else {
+    $("progress").textContent = "Copy your ratings and paste them to Claude.";
+  }
+});
+$("copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText(summary()); $("progress").textContent = "Copied. Paste it to Claude."; }
+  catch (e) { $("progress").textContent = "Copy didn't work here; tell Claude and it will read the ratings another way."; }
+});
+
+render();
+(async () => {
+  db = window.claude && window.claude.use ? await window.claude.use("db") : null;
+  if (!db) {
+    $("saveNote").hidden = false;
+    $("saveNote").textContent = "Ratings can't be saved from this view. Rate as usual, then use Copy ratings at the bottom and paste them to Claude.";
+    $("copy").hidden = false;
+  }
+})();
+</script>
