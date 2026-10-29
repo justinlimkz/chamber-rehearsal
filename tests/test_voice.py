@@ -44,3 +44,11 @@ def test_recognises_synthetic_speech(tmp_path, spoken, cue):
     subprocess.run(["afconvert", "-f", "WAVE", "-d", "LEI16@16000", "-c", "1", str(aiff), str(wav)], check=True)
     cues = [c for c in map(voice.parse, voice.recognise_file(wav)) if c]
     assert cues == ([cue] if cue else [])
+
+
+def test_pause_and_resume_phrases():
+    for text in ("pause", "stop"):
+        assert voice.parse(text) == Cue("pause")
+    for text in ("resume", "continue", "come back"):
+        assert voice.parse(text) == Cue("resume")
+    assert {"pause", "resume", "come back"} <= set(voice.grammar(10))

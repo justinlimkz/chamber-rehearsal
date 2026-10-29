@@ -31,9 +31,11 @@ public struct ScoreData: Sendable, Decodable {
     /// (quarter-note position, written bar number) for every bar of the unfolded piano part, in order.
     public var barStarts: [(Double, Int)]
     public var leadership: [Passage]?
+    /// Each string part's loudness from the score's dynamics (dynamics.curves): (beat, dB from mf) points.
+    public var dynamics: [String: [(Double, Double)]]
     private var parts: [String: [ScoreNote]]
 
-    private enum CodingKeys: String, CodingKey { case title, composer, barStarts, parts, leadership }
+    private enum CodingKeys: String, CodingKey { case title, composer, barStarts, parts, leadership, dynamics }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -47,6 +49,8 @@ public struct ScoreData: Sendable, Decodable {
         }
         barStarts = starts
         leadership = try c.decodeIfPresent([Passage].self, forKey: .leadership)
+        let dyn = try c.decodeIfPresent([String: [[Double]]].self, forKey: .dynamics) ?? [:]
+        dynamics = dyn.mapValues { rows in rows.map { ($0[0], $0[1]) } }
         let raw = try c.decode([String: [[Double]]].self, forKey: .parts)
         parts = raw.mapValues { rows in
             rows.map { ScoreNote(onsetBeat: $0[0], durationBeat: $0[1], pitch: Int($0[2])) }

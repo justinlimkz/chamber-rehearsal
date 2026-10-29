@@ -61,7 +61,7 @@ let HOME_PULL = 0.3  // per chord, at coupling 0, the period moves this fraction
 
 /// A voice cue (voice.Cue).
 public struct Cue: Equatable, Sendable, CustomStringConvertible {
-    public var kind: String  // "bar" | "top" | "again"
+    public var kind: String  // "bar" | "top" | "again" | "pause" (strings sit out) | "resume"
     public var bar: Int = 0
     public var pickup: Bool = false  // "from the pickup to bar N"
 
@@ -73,7 +73,7 @@ public struct Cue: Equatable, Sendable, CustomStringConvertible {
         if kind == "bar" {
             return pickup ? "from the pickup to bar \(bar)" : "from bar \(bar)"
         }
-        return kind == "top" ? "from the top" : "again"
+        return ["top": "from the top", "again": "again", "pause": "pause", "resume": "resume"][kind]!
     }
 }
 
@@ -118,8 +118,11 @@ public final class Accompanist {
     public let firstBar: Int
     public let lastBar: Int
     public var clock: BeatClock
-    public let velocity: Int
+    public let velocity: Int  // every note, without dynamics
     public let leadership: [Passage]?  // nil: the piano always leads
+    public let dynamics: Bool  // loudness from the score's dynamics: expression (CC11) following the marked
+                               // levels and hairpins, through held notes too; notes at TOP_VELOCITY
+    let levels: [String: [(Double, Double)]]?
 
     public let barStarts: [(Double, Int)]
     let barStart: [Int: Double]
@@ -132,9 +135,12 @@ public final class Accompanist {
     public private(set) var started = false  // the clock has been set at least once
     public private(set) var waiting = true  // strings silent, waiting for the pianist to (re)start
     public private(set) var finished = false
+    public private(set) var paused = false  // the pianist practises alone: piano ignored until "resume" or a cue
     var trailStart: Double? = nil  // when the strings began trailing off
     // current expression of parts being faded (Python dict: insertion order matters)
     var faded: [(part: String, level: Int)] = []
+    var dyn: [String: Int] = [:]  // per part, the expression the dynamics ask for (127 if not set)
+    var expr: [String: Int] = [:]  // per part, the expression last sent: dynamics times fade (127 if not sent)
     public private(set) var restartFrom: Double
     var restartBack = 0.0
     var lastStart: Double  // for "again"
@@ -156,9 +162,10 @@ public final class Accompanist {
 
     public init(score: ScoreData, firstBar: Int = 1, lastBar: Int = 16,
                 clock: BeatClock = BeatClock(spb: 60.0 / 63.0), velocity: Int = 80,
-                leadership: [Passage]? = nil) {
+                leadership: [Passage]? = nil, dynamics: Bool = true) {
         self.score = score; self.firstBar = firstBar; self.lastBar = lastBar
-        self.clock = clock; self.velocity = velocity; self.leadership = leadership
+        self.clock = clock; self.velocity = velocity; self.leadership = leadership; self.dynamics = dynamics
+        levels = dynamics ? score.dynamics : nil
         let starts = score.barStarts
         barStarts = starts
         var bs: [Int: Double] = [:]
@@ -178,7 +185,8 @@ public final class Accompanist {
         for name in STRING_PARTS {
             for n in score.notes(name) where lo <= n.onsetBeat && n.onsetBeat < hi {
                 all.append((all.count, StringNote(part: name, pitch: n.pitch, onsetBeat: n.onsetBeat,
-                                                  durationBeat: n.durationBeat, velocity: velocity)))
+                                                  durationBeat: n.durationBeat,
+                                                  velocity: dynamics ? TOP_VELOCITY : velocity)))
             }
         }
         all.sort { a, b in
@@ -196,7 +204,7 @@ public final class Accompanist {
     // MARK: inputs
 
     public func onPianoOnset(_ t: Double, _ pitch: Int) {
-        if finished { return }
+        if finished || paused { return }
         if let p = pending, t - p.last <= CHORD_GAP_S {
             pending!.pitches.insert(pitch)
             pending!.last = t
@@ -243,6 +251,13 @@ public final class Accompanist {
     }
 
     private func cueMessage(_ t: Double, _ cue: Cue) -> String {
+        if cue.kind == "pause" { return pause(t) }
+        if cue.kind == "resume" {
+            if !paused { return "\"resume\" ignored: not paused" }
+            paused = false
+            let (bar, bib) = score.barAt(restartFrom)
+            return "resume: strings come in with you at bar \(bar) beat \(fmtG(bib))"
+        }
         if !(waiting || trailing) {
             return "\"\(cue)\" ignored: only while stopped"
         }
@@ -260,12 +275,25 @@ public final class Accompanist {
             return "\"\(cue)\" ignored: no piano after that point"
         }
         stopSounding(t)
-        waiting = true; trailStart = nil
+        waiting = true; trailStart = nil; paused = false
         restartFrom = first; restartBack = CUE_BACK_BEATS
         lastStart = max(target, startBeat)
         lastBeat = nil
         let (bar, bib) = score.barAt(first)
         return "\(cue): strings come in with you at bar \(bar) beat \(fmtG(bib))"
+    }
+
+    /// Strings stop at once and sit out, the piano ignored, until "resume" (back where you were) or a cue.
+    private func pause(_ t: Double) -> String {
+        if paused { return "already paused" }
+        if !(waiting || trailing) {  // playing: a restart from where you are, as when you stop
+            if let nxt = nextOnset(), let lb = lastBeat {
+                restartFrom = nxt; restartBack = nxt - lb + RESTART_BACK_BEATS
+            }
+        }
+        stopSounding(t)
+        waiting = true; trailStart = nil; paused = true; pending = nil
+        return "paused: practise on your own; say \"resume\" or \"from bar …\" for the strings"
     }
 
     // MARK: output
@@ -302,9 +330,17 @@ public final class Accompanist {
                 tOn = min(tOn, now)  // the pianist already played this beat, earlier than predicted: come in now
             }
             if tOn > now { break }
+            if levels != nil { sendDynamics(tOn, n.part, n.onsetBeat, &out) }
             out.append(Out(tOn, "on", n.part, pitch: n.pitch, velocity: n.velocity, beat: n.onsetBeat))
             sounding.append((n.onsetBeat + n.durationBeat, n))
             nextNote += 1
+        }
+        if levels != nil {  // hairpins go on through held notes
+            let beat = clock.beatAt(now)
+            for part in STRING_PARTS {
+                let onsets = sounding.filter { $0.note.part == part }.map { $0.note.onsetBeat }
+                if let m = onsets.max() { sendDynamics(now, part, max(beat, m), &out) }
+            }
         }
         if nextNote >= notes.count && sounding.isEmpty {
             finished = true
@@ -363,7 +399,8 @@ public final class Accompanist {
                 } else {
                     faded.append((n.part, level))
                 }
-                out.append(Out(now, "expr", n.part, velocity: level))
+                expr[n.part] = scaleExpression(dyn[n.part] ?? 127, level)
+                out.append(Out(now, "expr", n.part, velocity: expr[n.part]!))
             }
         }
     }
@@ -372,7 +409,19 @@ public final class Accompanist {
     private func stopSounding(_ now: Double) {
         queued += sounding.map { Out(now, "off", $0.note.part, pitch: $0.note.pitch, beat: $0.note.onsetBeat) }
         queued += faded.map { Out(now, "expr", $0.part, velocity: 127) }
+        for f in faded { expr[f.part] = 127 }
         sounding = []; faded = []
+    }
+
+    /// Send the part's expression for the dynamics at `beat`, if it changed.
+    private func sendDynamics(_ t: Double, _ part: String, _ beat: Double, _ out: inout [Out]) {
+        let d = dynamicsVelocity(levelAt(levels![part] ?? [], beat))
+        dyn[part] = d
+        let value = scaleExpression(d, faded.first(where: { $0.part == part })?.level ?? 127)
+        if value != (expr[part] ?? 127) {
+            expr[part] = value
+            out.append(Out(t, "expr", part, velocity: value))
+        }
     }
 
     private func finishChord() {

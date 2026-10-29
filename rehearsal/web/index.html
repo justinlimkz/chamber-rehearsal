@@ -123,6 +123,7 @@ h1 span { color: var(--muted); font-weight: 400; }
       <span class="chip" id="kb">Keyboard</span>
       <span class="chip" id="mic">Mic</span>
       <span class="chip" id="mode">Strings follow you</span>
+      <button class="btn" id="pauseBtn" type="button" title="The strings sit out while you practise on your own">Pause strings</button>
       <button class="btn" data-cue="top" type="button">From the top</button>
       <button class="btn" data-cue="again" type="button">Again</button>
       <button class="btn" id="standBtn" type="button" title="Music-stand view (S)">Stand view</button>
@@ -160,7 +161,7 @@ h1 span { color: var(--muted); font-weight: 400; }
       <div style="display:flex;flex-direction:column;gap:10px;flex:1 1 320px;min-width:0">
         <div class="state" id="waitState" style="color:var(--amber-text)"></div>
         <div class="prompt" id="prompt">Play on, or say where to start</div>
-        <div class="phrases"><span>“from bar 9”</span><span>“from the pickup to bar 9”</span><span>“from the top”</span><span>“again”</span></div>
+        <div class="phrases"><span>“from bar 9”</span><span>“from the pickup to bar 9”</span><span>“from the top”</span><span>“again”</span><span>“pause”</span><span>“resume”</span></div>
         <div class="heard" id="heard"></div>
       </div>
     </div>
@@ -216,6 +217,7 @@ const STATES = {
   playing: { text: "With you", color: "var(--blue-text)", hint: "" },
   trailing: { text: "You stopped", color: "var(--amber-text)", hint: "strings trailing off" },
   waiting: { text: "Waiting", color: "var(--amber-text)", hint: "Play on, or say where to start" },
+  paused: { text: "Paused", color: "var(--muted)", hint: "Practise on your own; say “resume” or where to start" },
   finished: { text: "Finished", color: "var(--muted)", hint: "End the session to save it" },
 };
 let layout = null, st = null, recvAt = 0, windowStart = -1;
@@ -226,6 +228,7 @@ function post(path, body) {
 function cue(text) { post("/cue", { text }); }
 
 document.querySelectorAll("[data-cue]").forEach((b) => b.addEventListener("click", () => cue(b.dataset.cue)));
+$("pauseBtn").addEventListener("click", () => { if (st) cue(st.state === "paused" ? "resume" : "pause"); });
 $("endBtn").addEventListener("click", () => post("/end"));
 $("scanBtn").addEventListener("click", () => {
   const b = $("scanBtn");
@@ -325,15 +328,19 @@ function frame() {
 
 function render() {
   const s = STATES[st.state];
-  document.body.classList.toggle("waiting", st.state === "waiting" || st.state === "ready");
+  document.body.classList.toggle("waiting", st.state === "waiting" || st.state === "ready" || st.state === "paused");
+  $("pauseBtn").textContent = st.state === "paused" ? "Resume strings" : "Pause strings";
+  $("pauseBtn").disabled = st.state === "finished";
   $("state").style.color = s.color; $("stateText").textContent = s.text;
   $("sState").style.color = s.color; $("sStateText").textContent = s.text;
   $("sBand").style.background = st.state === "playing" ? "var(--blue)" : st.state === "ready" || st.state === "finished" ? "var(--line2)" : "var(--amber)";
   $("sCap").textContent = st.state === "waiting" ? "Play on from bar" : st.state === "ready" ? "Start at bar" : "Bar";
-  $("waitState").textContent = st.state === "ready" ? "Ready" : "Stopped · waiting";
+  $("waitState").textContent = st.state === "ready" ? "Ready" : st.state === "paused" ? "Paused · strings sit out" : "Stopped · waiting";
   $("prompt").textContent = !st.keyboard ? "Plug in the piano to begin"
-    : st.state === "ready" ? "Play when you're ready, or say where to start" : "Play on, or say where to start";
-  $("sHint").textContent = st.state === "waiting" || st.state === "ready" ? "Play on, or say “from bar …”, “from the top”, “again”" : "Stop any time, then play on, or say “from bar …”";
+    : st.state === "ready" ? "Play when you're ready, or say where to start"
+    : st.state === "paused" ? "Practise on your own; say “resume” or where to start" : "Play on, or say where to start";
+  $("sHint").textContent = st.state === "waiting" || st.state === "ready" ? "Play on, or say “from bar …”, “from the top”, “again”"
+    : st.state === "paused" ? "Strings paused: say “resume” or “from bar …”" : "Stop any time, then play on, or say “from bar …”";
 
   const kb = $("kb");
   document.body.classList.toggle("no-keyboard", !st.keyboard);

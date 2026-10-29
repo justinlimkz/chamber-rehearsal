@@ -52,6 +52,7 @@ header { flex: none; display: flex; align-items: center; gap: 14px; padding: cal
   <span class="chip" id="state"><i></i><span id="stateText">Connecting…</span></span>
   <div class="title" id="title"></div>
   <span class="chip" id="bpm" hidden></span>
+  <button class="btn" type="button" id="pauseBtn" title="The strings sit out while you practise on your own">Pause strings</button>
   <button class="btn" type="button" data-cue="again">Again</button>
   <button class="btn" type="button" data-cue="top">From the top</button>
 </header>
@@ -65,7 +66,7 @@ header { flex: none; display: flex; align-items: center; gap: 14px; padding: cal
 const $ = (id) => document.getElementById(id);
 const STATES = {
   ready: ["Ready", "var(--muted)"], playing: ["With you", "var(--blue)"], trailing: ["You stopped", "var(--amber)"],
-  waiting: ["Waiting", "var(--amber)"], finished: ["Finished", "var(--muted)"],
+  waiting: ["Waiting", "var(--amber)"], paused: ["Paused · on your own", "var(--muted)"], finished: ["Finished", "var(--muted)"],
 };
 let layout = null, st = null, recvAt = 0, anchors = {};
 let bars = {};          // bar number -> {el, system}
@@ -85,6 +86,7 @@ function toast(text) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
 }
 document.querySelectorAll("[data-cue]").forEach((b) => b.addEventListener("click", () => cue(b.dataset.cue)));
+$("pauseBtn").addEventListener("click", () => { if (st) cue(st.state === "paused" ? "resume" : "pause"); });
 
 // Bar boxes in the music's own coordinates, from the staff lines: barline to barline, top staff to
 // bottom staff. (Not the bar's whole drawing: slurs and ties reach into the next bar.)
@@ -202,9 +204,11 @@ function render() {
     chip.className = "chip warn"; $("stateText").textContent = "No keyboard: plug in the piano";
     chip.style.color = "";
   } else {
-    const listening = (st.state === "waiting" || st.state === "ready") && st.mic === "listening";
+    const listening = (st.state === "waiting" || st.state === "ready" || st.state === "paused") && st.mic === "listening";
     chip.className = "chip"; chip.style.color = color; $("stateText").textContent = text + (listening ? " · listening" : "");
   }
+  $("pauseBtn").textContent = st.state === "paused" ? "Resume strings" : "Pause strings";
+  $("pauseBtn").disabled = st.state === "finished";
   $("bpm").hidden = !st.bpm;
   if (st.bpm) $("bpm").textContent = "♩ " + Math.round(st.bpm);
   if (st.lastCue && st.lastCue !== render.lastCue) toast(st.heard ? "“" + st.heard + "”: " + st.lastCue : st.lastCue);

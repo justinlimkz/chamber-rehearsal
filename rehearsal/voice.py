@@ -1,7 +1,7 @@
 """Voice restart cues, recognised locally and offline with Vosk.
 
 Recognition is constrained to a small grammar of rehearsal phrases ("from bar 9", "from the top",
-"again", ...), which makes it fast and robust with the small English model. The listener only feeds
+"again", "pause", "resume", ...), which makes it fast and robust with the small English model. The listener only feeds
 audio to the recogniser while `active` is set (the strings set it while waiting), so the piano and
 strings don't trigger it.
 
@@ -24,18 +24,20 @@ MAX_BAR = 199
 ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
         "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
 TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+PAUSE = ("pause", "stop")  # the strings sit out while you practise alone
+RESUME = ("resume", "continue", "come back")
 
 
 @dataclass(frozen=True)
 class Cue:
-    kind: str  # "bar" | "top" | "again"
+    kind: str  # "bar" | "top" | "again" | "pause" (strings sit out) | "resume"
     bar: int = 0
     pickup: bool = False  # "from the pickup to bar N"
 
     def __str__(self) -> str:
         if self.kind == "bar":
             return f"from the pickup to bar {self.bar}" if self.pickup else f"from bar {self.bar}"
-        return {"top": "from the top", "again": "again"}[self.kind]
+        return {"top": "from the top", "again": "again", "pause": "pause", "resume": "resume"}[self.kind]
 
 
 def number_words(n: int) -> str:
@@ -68,7 +70,7 @@ def words_number(words: list[str]) -> int | None:
 
 
 def grammar(max_bar: int = MAX_BAR) -> list[str]:
-    phrases = ["from the top", "from the beginning", "again", "[unk]"]
+    phrases = ["from the top", "from the beginning", "again", *PAUSE, *RESUME, "[unk]"]
     for n in range(1, max_bar + 1):
         w = number_words(n)
         phrases += [f"from bar {w}", f"from measure {w}", f"from the pickup to bar {w}", f"from the pickup to measure {w}"]
@@ -81,6 +83,10 @@ def parse(text: str) -> Cue | None:
         return None
     if words == ["again"]:
         return Cue("again")
+    if " ".join(words) in PAUSE:
+        return Cue("pause")
+    if " ".join(words) in RESUME:
+        return Cue("resume")
     if words[:3] in (["from", "the", "top"], ["from", "the", "beginning"]):
         return Cue("top")
     pickup = words[:4] == ["from", "the", "pickup", "to"]

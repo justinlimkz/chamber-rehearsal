@@ -2,8 +2,9 @@ import AVFoundation
 import RehearsalCore
 import Speech
 
-// Voice restart cues (rehearsal/voice.py on the iPad): "from bar nine", "from the pickup to bar nine",
-// "from the top", "again". Apple's on-device speech recognition, listened to only while the strings are
+// Voice cues (rehearsal/voice.py on the iPad): "from bar nine", "from the pickup to bar nine",
+// "from the top", "again", and "pause"/"stop" (the strings sit out while you practise alone), "resume"/
+// "continue"/"come back". Apple's on-device speech recognition, listened to only while the strings are
 // waiting, so the piano and the strings don't trigger it.
 //
 // Recognition is open dictation (not a grammar, as with Vosk), so the text is searched for the last cue
@@ -117,8 +118,15 @@ final class Voice: @unchecked Sendable {
     static func parse(_ text: String) -> Cue? {
         let words = text.lowercased().replacingOccurrences(of: "-", with: " ")
             .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        guard let i = words.lastIndex(where: { $0 == "from" || $0 == "again" }) else { return nil }
-        if words[i] == "again" { return Cue(kind: "again") }
+        let keys: Set<String> = ["from", "again", "pause", "stop", "resume", "continue"]
+        guard let i = words.indices.last(where: { keys.contains(words[$0]) || (words[$0] == "back" && $0 > 0 && words[$0 - 1] == "come") })
+        else { return nil }
+        switch words[i] {
+        case "again": return Cue(kind: "again")
+        case "pause", "stop": return Cue(kind: "pause")
+        case "resume", "continue", "back": return Cue(kind: "resume")
+        default: break
+        }
         var rest = Array(words[(i + 1)...])
         if rest.starts(with: ["the", "top"]) || rest.starts(with: ["the", "beginning"]) || rest == ["top"] {
             return Cue(kind: "top")

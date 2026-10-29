@@ -70,11 +70,10 @@ final class Session: @unchecked Sendable {
         lock.withLock { extraNotices.append(n); recording.notice(n) }
     }
 
-    /// A cue from the page: "again", "top", or a bar number.
+    /// A cue from the page: "again", "top", "pause", "resume", or a bar number.
     func cue(_ text: String) {
         switch text {
-        case "again": cue(Cue(kind: "again"))
-        case "top": cue(Cue(kind: "top"))
+        case "again", "top", "pause", "resume": cue(Cue(kind: text))
         default: if let bar = Int(text) { cue(Cue(kind: "bar", bar: bar)) }
         }
     }
@@ -130,8 +129,9 @@ final class Session: @unchecked Sendable {
     func state() -> [String: Any] {
         let now = self.now()
         return lock.withLock {
-            let state = acc.finished ? "finished" : acc.trailing ? "trailing" : acc.waiting ? (acc.started ? "waiting" : "ready") : "playing"
-            let restart: Double? = state == "waiting" || state == "ready" ? acc.restartFrom : nil
+            let state = acc.finished ? "finished" : acc.trailing ? "trailing" : acc.paused ? "paused"
+                : acc.waiting ? (acc.started ? "waiting" : "ready") : "playing"
+            let restart: Double? = ["waiting", "ready", "paused"].contains(state) ? acc.restartFrom : nil
             let notices = (acc.notices + extraNotices).sorted { $0.t < $1.t }.suffix(5).map { [$0.t, $0.text] as [Any] }
             return [
                 "state": state, "keyboard": keyboard.name as Any, "bpm": 60 / acc.clock.spb,

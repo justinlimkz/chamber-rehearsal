@@ -16,7 +16,7 @@ public enum Simulator {
     /// `onsets`: (time, pitch) of the piano note-ons.
     public static func run(score: ScoreData, onsets: [(Double, Int)], firstBar: Int = 1, lastBar: Int = 16,
                            clock: BeatClock? = nil, cues: [(Double, Cue)] = [],
-                           leadership: [Passage]? = nil) -> SimResult {
+                           leadership: [Passage]? = nil, dynamics: Bool = true) -> SimResult {
         enum Input { case piano(Int), cue(Cue) }
         // (time, kind, payload); kind 0 = piano, 2 = cue. Sorted by (time, kind), stable.
         var inputs: [(t: Double, kind: Int, x: Input)] = onsets.map { ($0.0, 0, .piano($0.1)) }
@@ -28,7 +28,8 @@ public enum Simulator {
         }.map { $0.element }
 
         let acc = Accompanist(score: score, firstBar: firstBar, lastBar: lastBar,
-                              clock: clock ?? BeatClock(spb: 60.0 / 63.0), leadership: leadership)
+                              clock: clock ?? BeatClock(spb: 60.0 / 63.0), leadership: leadership,
+                              dynamics: dynamics)
         var outs: [Out] = []
         var i = 0, now = 0.0
         let end = inputs.map { $0.t }.max()! + 5.0

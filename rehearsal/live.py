@@ -41,7 +41,7 @@ class Snapshot:
     first_bar: int
     last_bar: int
     mode: str  # e.g. "strings follow you"
-    state: str  # "ready" | "playing" | "trailing" | "waiting" | "finished"
+    state: str  # "ready" | "playing" | "trailing" | "waiting" | "paused" | "finished"
     mic: str  # "asleep" | "listening" | "off"
     bar: int | None = None
     beat: int | None = None  # 1-based beat in bar
@@ -56,7 +56,7 @@ class Snapshot:
 
 
 def typed_cue(line: str) -> voice.Cue | None:
-    """A typed cue: "9", "bar 9", "pickup 9", "top" or "again"."""
+    """A typed cue: "9", "bar 9", "pickup 9", "top", "again", "pause" or "resume"."""
     words = line.strip().lower().split()
     if words and words[-1].isdigit():
         words = ["from", "the", "pickup", "to", "bar"] + words[-1:] if "pickup" in words else ["from", "bar"] + words[-1:]
@@ -335,7 +335,7 @@ class ViewState:
         playhead between updates."""
         s = self.snapshot(now, listener, keyboard)
         acc = self.acc
-        restart = acc.restart_from if s.state in ("waiting", "ready") else None
+        restart = acc.restart_from if s.state in ("waiting", "ready", "paused") else None
         return {"state": s.state, "mic": s.mic, "keyboard": keyboard, "mode": s.mode, "bpm": s.bpm, "tempoHistory": s.tempo_history,
                 "timingMs": s.timing_ms, "notices": s.notices, "lastCue": self.last_cue if restart is not None else None,
                 "restartBeat": restart, "lastBeat": acc.last_beat, "endBeat": min(acc.end_beat, 1e9),
@@ -347,6 +347,8 @@ class ViewState:
             state = "finished"
         elif acc.trailing:
             state = "trailing"
+        elif acc.paused:
+            state = "paused"
         elif acc.waiting:
             state = "waiting" if acc.started else "ready"
         else:

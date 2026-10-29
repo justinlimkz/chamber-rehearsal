@@ -29,6 +29,7 @@ from __future__ import annotations
 import bisect
 from dataclasses import dataclass, field
 
+from . import dynamics
 from .annotate import COUPLING, Passage
 from .score import Score
 from .tempo import BeatClock
@@ -96,8 +97,10 @@ class Accompanist:
     first_bar: int = 1
     last_bar: int = 16
     clock: BeatClock = field(default_factory=lambda: BeatClock(spb=60 / 63))
-    velocity: int = 80
+    velocity: int = 80  # every note, without dynamics
     leadership: list[Passage] | None = None  # None: the piano always leads
+    dynamics: bool = True  # loudness from the score's dynamics (dynamics.py): expression (CC11) following the
+                           # marked levels and hairpins, through held notes too; notes at TOP_VELOCITY
 
     def __post_init__(self) -> None:
         starts = self.score.bar_starts()
@@ -111,8 +114,10 @@ class Accompanist:
                 piano.setdefault(n.onset_beat, set()).add(n.pitch)
         self.piano_onsets = sorted(piano)
         self.piano_pitches = {b: frozenset(p) for b, p in piano.items()}
+        self.levels = dynamics.curves(self.score, STRING_PARTS) if self.dynamics else None
+        velocity = dynamics.TOP_VELOCITY if self.dynamics else self.velocity
         self.notes = sorted(
-            (StringNote(name, n.pitch, n.onset_beat, n.duration_beat, self.velocity)
+            (StringNote(name, n.pitch, n.onset_beat, n.duration_beat, velocity)
              for name in STRING_PARTS for n in self.score.notes(name)
              if self.start_beat <= n.onset_beat < self.end_beat),
             key=lambda n: (n.onset_beat, n.part, n.pitch),
@@ -120,8 +125,11 @@ class Accompanist:
         self.started = False  # the clock has been set at least once
         self.waiting = True  # strings silent, waiting for the pianist to (re)start
         self.finished = False
+        self.paused = False  # the pianist practises alone: piano ignored until "resume" or a cue
         self.trail_start: float | None = None  # when the strings began trailing off
         self.faded: dict[str, int] = {}  # current expression of parts being faded
+        self.dyn: dict[str, int] = {}  # per part, the expression the dynamics ask for (127 if not set)
+        self.expr: dict[str, int] = {}  # per part, the expression last sent: dynamics times fade (127 if not sent)
         self.restart_from = self.piano_onsets[0]  # piano chord a restart is expected at...
         self.restart_back = 0.0  # ...or up to this many beats before it
         self.last_start = self.start_beat  # for "again"
@@ -144,7 +152,7 @@ class Accompanist:
     # --- inputs -------------------------------------------------------------------------------------
 
     def on_piano_onset(self, t: float, pitch: int) -> None:
-        if self.finished:
+        if self.finished or self.paused:
             return
         if self.pending and t - self.pending[1] <= CHORD_GAP_S:
             self.pending[2].add(pitch)
@@ -184,6 +192,14 @@ class Accompanist:
         return msg
 
     def _cue(self, t: float, cue: Cue) -> str:
+        if cue.kind == "pause":
+            return self._pause(t)
+        if cue.kind == "resume":
+            if not self.paused:
+                return '"resume" ignored: not paused'
+            self.paused = False
+            bar, bib = self.score.bar_at(self.restart_from)
+            return f"resume: strings come in with you at bar {bar} beat {bib:g}"
         if not (self.waiting or self.trailing):
             return f'"{cue}" ignored: only while stopped'
         if cue.kind == "again":
@@ -198,12 +214,24 @@ class Accompanist:
         if first is None:
             return f'"{cue}" ignored: no piano after that point'
         self._stop_sounding(t)
-        self.waiting, self.trail_start = True, None
+        self.waiting, self.trail_start, self.paused = True, None, False
         self.restart_from, self.restart_back = first, CUE_BACK_BEATS
         self.last_start = max(target, self.start_beat)
         self.last_beat = None
         bar, bib = self.score.bar_at(first)
         return f"{cue}: strings come in with you at bar {bar} beat {bib:g}"
+
+    def _pause(self, t: float) -> str:
+        """Strings stop at once and sit out, the piano ignored, until "resume" (back where you were) or a cue."""
+        if self.paused:
+            return "already paused"
+        if not (self.waiting or self.trailing):  # playing: a restart from where you are, as when you stop
+            nxt = self._next_onset()
+            if nxt is not None and self.last_beat is not None:
+                self.restart_from, self.restart_back = nxt, nxt - self.last_beat + RESTART_BACK_BEATS
+        self._stop_sounding(t)
+        self.waiting, self.trail_start, self.paused, self.pending = True, None, True, None
+        return 'paused: practise on your own; say "resume" or "from bar …" for the strings'
 
     # --- output -------------------------------------------------------------------------------------
 
@@ -237,9 +265,17 @@ class Accompanist:
                 t_on = min(t_on, now)  # the pianist already played this beat, earlier than predicted: come in now
             if t_on > now:
                 break
+            if self.levels:
+                self._dynamics(t_on, n.part, n.onset_beat, out)
             out.append(Out(t_on, "on", n.part, n.pitch, n.velocity, n.onset_beat))
             self.sounding.append((n.onset_beat + n.duration_beat, n))
             self.next_note += 1
+        if self.levels:  # hairpins go on through held notes
+            beat = self.clock.beat_at(now)
+            for part in STRING_PARTS:
+                onsets = [n.onset_beat for _, n in self.sounding if n.part == part]
+                if onsets:
+                    self._dynamics(now, part, max(beat, *onsets), out)
         if self.next_note >= len(self.notes) and not self.sounding:
             self.finished = True
         out.sort(key=lambda o: o.time)
@@ -278,12 +314,22 @@ class Accompanist:
         for _, n in self.sounding:
             if self._off_time(n) > self.trail_start + TRAIL_S and self.faded.get(n.part, 127) - level >= FADE_STEP:
                 self.faded[n.part] = level
-                out.append(Out(now, "expr", n.part, velocity=level))
+                self.expr[n.part] = _scale(self.dyn.get(n.part, 127), level)
+                out.append(Out(now, "expr", n.part, velocity=self.expr[n.part]))
+
+    def _dynamics(self, t: float, part: str, beat: float, out: list[Out]) -> None:
+        """Send the part's expression for the dynamics at `beat`, if it changed."""
+        self.dyn[part] = dynamics.velocity(dynamics.level_at(self.levels[part], beat))
+        value = _scale(self.dyn[part], self.faded.get(part, 127))
+        if value != self.expr.get(part, 127):
+            self.expr[part] = value
+            out.append(Out(t, "expr", part, velocity=value))
 
     def _stop_sounding(self, now: float) -> None:
         """Queue note-offs for everything sounding and reset any faded expression."""
         self.queued += [Out(now, "off", n.part, n.pitch, beat=n.onset_beat) for _, n in self.sounding]
         self.queued += [Out(now, "expr", part, velocity=127) for part in self.faded]
+        self.expr.update({part: 127 for part in self.faded})
         self.sounding, self.faded = [], {}
 
     def _finish_chord(self) -> None:
@@ -446,3 +492,8 @@ class Accompanist:
     def _pianist_stopped(self, now: float) -> bool:
         expected = self._next_onset()
         return expected is not None and self.clock.beat_at(now) > expected + CARRY_BEATS
+
+
+def _scale(dyn: int, fade: int) -> int:
+    """Expression for a dynamics level faded to `fade`/127 (rounding half up, as the Swift port does)."""
+    return dyn if fade == 127 else int(dyn * fade / 127 + 0.5)

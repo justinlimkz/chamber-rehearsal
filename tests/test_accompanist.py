@@ -30,7 +30,7 @@ def test_strings_wait_for_first_chord_then_come_in_with_it(score):
     assert acc.due(5.0) == []
     for i, pitch in enumerate(sorted(acc.piano_pitches[acc.piano_onsets[0]])):
         acc.on_piano_onset(5.0 + 0.005 * i, pitch)
-    first = acc.due(5.02)
+    first = [o for o in acc.due(5.02) if o.kind != "expr"]  # the dynamics' expression comes with them
     assert first and all(o.kind == "on" and o.beat == acc.piano_onsets[0] for o in first)
 
 
@@ -161,3 +161,24 @@ def test_piano_led_annotation_is_the_same_as_none(score):
     base = simulate.run(score, take.events, 1, 16)
     res = simulate.run(score, take.events, 1, 16, leadership=[Passage(1, 132, "piano", 0.7, "")])
     assert [(round(o.time, 6), o.kind, o.pitch) for o in res.outs] == [(round(o.time, 6), o.kind, o.pitch) for o in base.outs]
+
+
+def test_pause_ignores_the_piano_until_resume(score):
+    take = synth.make_take(score, 1, 16, seed=0)
+    acc = Accompanist(score, 1, 16)
+    onsets = [e for e in take.events if e.is_onset]
+    half = len(onsets) // 2
+    t_pause = onsets[half].time - 0.01
+    played_while_paused = []
+    paused = False
+    for e in onsets:
+        if not paused and e.time >= t_pause:
+            acc.on_cue(t_pause, Cue("pause"))
+            paused = True
+        acc.on_piano_onset(e.time, e.note)
+        outs = acc.due(e.time + 0.001)
+        if paused:
+            played_while_paused += [o for o in outs if o.kind == "on"]
+    assert acc.paused and acc.waiting and played_while_paused == []
+    assert acc.on_cue(99.0, Cue("resume")).startswith("resume: strings come in with you at bar")
+    assert not acc.paused and acc.waiting
