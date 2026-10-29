@@ -71,9 +71,14 @@ let layout = null, st = null, recvAt = 0, anchors = {};
 let bars = {};          // bar number -> {el, system}
 let shownSystem = null, lastTarget = null, toastTimer = 0;
 
+// In the iPad app the page is fed by the app itself (`receive`) and talks back through a message
+// handler; in Safari, by the Mac's server (server-sent events, POSTs).
+const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.rehearsal;
 function post(path, body) {
+  if (native) { native.postMessage({ path, body: body || {} }); return; }
   fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
 }
+function receive(s) { st = s; recvAt = performance.now(); render(); }
 function cue(text) { post("/cue", { text }); }
 function toast(text) {
   $("toast").textContent = text; $("toast").classList.add("show");
@@ -224,9 +229,13 @@ Promise.all([fetch("/score").then((r) => r.json()), fetch("/engraving.svg").then
     const n = m.getAttribute("data-n");
     if (!bars[n]) bars[n] = { el: m, system: m.closest("g.system") || m };
   }
-  const es = new EventSource("/events");
-  es.onmessage = (e) => { st = JSON.parse(e.data); recvAt = performance.now(); render(); };
-  es.addEventListener("end", () => { es.close(); $("ended").style.display = "flex"; });
+  if (native) {
+    window.receive = receive;
+  } else {
+    const es = new EventSource("/events");
+    es.onmessage = (e) => receive(JSON.parse(e.data));
+    es.addEventListener("end", () => { es.close(); $("ended").style.display = "flex"; });
+  }
   window.addEventListener("resize", () => { shownSystem = null; for (const b of Object.values(bars)) delete b.points; });
   requestAnimationFrame(frame);
 }).catch(() => { $("loading").textContent = "Couldn't load the score. Is the session still running on the Mac?"; });

@@ -121,10 +121,10 @@ public final class Accompanist {
     public let velocity: Int
     public let leadership: [Passage]?  // nil: the piano always leads
 
-    let barStarts: [(Double, Int)]
+    public let barStarts: [(Double, Int)]
     let barStart: [Int: Double]
-    let startBeat: Double
-    let endBeat: Double
+    public let startBeat: Double
+    public let endBeat: Double
     let pianoOnsets: [Double]
     let pianoPitches: [Double: Set<Int>]
     let notes: [StringNote]
@@ -135,10 +135,10 @@ public final class Accompanist {
     var trailStart: Double? = nil  // when the strings began trailing off
     // current expression of parts being faded (Python dict: insertion order matters)
     var faded: [(part: String, level: Int)] = []
-    var restartFrom: Double
+    public private(set) var restartFrom: Double
     var restartBack = 0.0
     var lastStart: Double  // for "again"
-    var lastBeat: Double? = nil  // score beat of the last piano chord matched
+    public private(set) var lastBeat: Double? = nil  // score beat of the last piano chord matched
     var lastChordT = -1.0
     var lastNoteT = -1.0  // last note that went into a chord
     var pending: (first: Double, last: Double, pitches: Set<Int>)? = nil  // chord being collected
@@ -270,7 +270,7 @@ public final class Accompanist {
 
     // MARK: output
 
-    var trailing: Bool { trailStart != nil }
+    public var trailing: Bool { trailStart != nil }
 
     /// String events whose time has come, in time order.
     public func due(_ now: Double) -> [Out] {

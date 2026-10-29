@@ -1,0 +1,264 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000101 /* RehearsalCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000401 /* RehearsalCore */; };
+		A10000000000000000000102 /* ipad.html in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* ipad.html */; };
+		A10000000000000000000103 /* schumann-op47-iii in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* schumann-op47-iii */; };
+		A10000000000000000000104 /* strings.sf2 in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000204 /* strings.sf2 */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000201 /* Rehearsal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rehearsal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000202 /* ipad.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = ipad.html; path = ../../rehearsal/web/ipad.html; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000203 /* schumann-op47-iii */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "schumann-op47-iii"; path = "../Bundles/schumann-op47-iii"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000204 /* strings.sf2 */ = {isa = PBXFileReference; lastKnownFileType = file; name = strings.sf2; path = ../Sounds/strings.sf2; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A10000000000000000000301 /* Rehearsal */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Rehearsal;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000501 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000101 /* RehearsalCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000601 = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000301 /* Rehearsal */,
+				A10000000000000000000602 /* Shared */,
+				A10000000000000000000603 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000602 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000202 /* ipad.html */,
+				A10000000000000000000203 /* schumann-op47-iii */,
+				A10000000000000000000204 /* strings.sf2 */,
+			);
+			name = Shared;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000603 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000201 /* Rehearsal.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000701 /* Rehearsal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000902 /* Build configuration list for PBXNativeTarget "Rehearsal" */;
+			buildPhases = (
+				A10000000000000000000801 /* Sources */,
+				A10000000000000000000501 /* Frameworks */,
+				A10000000000000000000802 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A10000000000000000000301 /* Rehearsal */,
+			);
+			name = Rehearsal;
+			packageProductDependencies = (
+				A10000000000000000000401 /* RehearsalCore */,
+			);
+			productName = Rehearsal;
+			productReference = A10000000000000000000201 /* Rehearsal.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = A10000000000000000000901 /* Build configuration list for PBXProject "Rehearsal" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000000000000000000601;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A10000000000000000000402 /* XCLocalSwiftPackageReference "../RehearsalCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A10000000000000000000603 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000000000000000000701 /* Rehearsal */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000802 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000102 /* ipad.html in Resources */,
+				A10000000000000000000103 /* schumann-op47-iii in Resources */,
+				A10000000000000000000104 /* strings.sf2 in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000801 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000000000000000000911 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A10000000000000000000912 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A10000000000000000000921 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PH29V4N6C3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Rehearsal;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = kz.justinlim.rehearsal;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Debug;
+		};
+		A10000000000000000000922 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PH29V4N6C3;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Rehearsal;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = kz.justinlim.rehearsal;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 2;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000901 /* Build configuration list for PBXProject "Rehearsal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000911 /* Debug */,
+				A10000000000000000000912 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000902 /* Build configuration list for PBXNativeTarget "Rehearsal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000921 /* Debug */,
+				A10000000000000000000922 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A10000000000000000000402 /* XCLocalSwiftPackageReference "../RehearsalCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RehearsalCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000401 /* RehearsalCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000402 /* XCLocalSwiftPackageReference "../RehearsalCore" */;
+			productName = RehearsalCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A10000000000000000000001 /* Project object */;
+}
