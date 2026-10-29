@@ -4,7 +4,8 @@ import RehearsalCore
 // Each session saved for listening back (live.py's session files): the piano, the strings and the
 // notices as markers, in one MIDI file laid out as `simulate.write_midi` lays it out (a channel per part,
 // wall-clock time at 120 bpm), so the Mac's `session.py` reads it as it reads the Mac's own.
-// Saved in the app's Documents/Sessions folder, which the Files app shows (On My iPad › Rehearsal).
+// Saved in the app's Documents/Sessions folder, which the Files app shows (On My iPad › Rehearsal), with a
+// small JSON file alongside (`<name>.json`: the piece and its passes) for the app's recordings list.
 
 struct Recording {
     static let channels = ["Violin": 0, "Viola": 1, "Violoncello": 2, "Piano": 3]
@@ -13,12 +14,14 @@ struct Recording {
 
     let start: Double  // session time of the recording's zero
     let name: String
+    let piece: String
     private(set) var piano: [(t: Double, e: PianoEvent)] = []
     private(set) var strings: [Out] = []
     private(set) var notices: [Notice] = []
 
-    init(start: Double) {
+    init(start: Double, piece: String) {
         self.start = start
+        self.piece = piece
         let f = DateFormatter()
         f.dateFormat = "yyyyMMdd-HHmmss"
         name = f.string(from: Date()) + ".mid"
@@ -36,11 +39,12 @@ struct Recording {
         URL.documentsDirectory.appendingPathComponent("Sessions", isDirectory: true)
     }
 
-    /// Write (or rewrite) the file; returns where.
-    func save() throws -> URL {
+    /// Write (or rewrite) the file and its summary; returns where.
+    func save(summary: Data) throws -> URL {
         try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true)
         let url = Self.folder.appendingPathComponent(name)
         try midi().write(to: url, options: .atomic)
+        try summary.write(to: url.deletingPathExtension().appendingPathExtension("json"), options: .atomic)
         return url
     }
 

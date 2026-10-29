@@ -28,6 +28,8 @@ public struct ScoreNote: Equatable, Sendable {
 public struct ScoreData: Sendable, Decodable {
     public var title: String
     public var composer: String
+    public var work: String  // for the library: the work, with its movements under it
+    public var movement: String  // "" when the piece is a whole work, or not known
     /// (quarter-note position, written bar number) for every bar of the unfolded piano part, in order.
     public var barStarts: [(Double, Int)]
     public var leadership: [Passage]?
@@ -35,12 +37,14 @@ public struct ScoreData: Sendable, Decodable {
     public var dynamics: [String: [(Double, Double)]]
     private var parts: [String: [ScoreNote]]
 
-    private enum CodingKeys: String, CodingKey { case title, composer, barStarts, parts, leadership, dynamics }
+    private enum CodingKeys: String, CodingKey { case title, composer, work, movement, barStarts, parts, leadership, dynamics }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         title = try c.decode(String.self, forKey: .title)
         composer = try c.decode(String.self, forKey: .composer)
+        work = try c.decodeIfPresent(String.self, forKey: .work) ?? title
+        movement = try c.decodeIfPresent(String.self, forKey: .movement) ?? ""
         var bs = try c.nestedUnkeyedContainer(forKey: .barStarts)
         var starts: [(Double, Int)] = []
         while !bs.isAtEnd {
@@ -63,6 +67,9 @@ public struct ScoreData: Sendable, Decodable {
 
     /// Notes of a part, sorted by (onset, pitch) as in score.notes(name).
     public func notes(_ name: String) -> [ScoreNote] { parts[name] ?? [] }
+
+    /// The parts in the score, sorted (string parts and the piano).
+    public var partNames: [String] { parts.keys.sorted() }
 
     /// Map an absolute (unfolded) beat position to (written bar, 1-based beat in bar).
     public func barAt(_ beat: Double) -> (bar: Int, beatInBar: Double) {

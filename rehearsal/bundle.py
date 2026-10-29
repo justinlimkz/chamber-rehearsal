@@ -1,9 +1,11 @@
 """A piece packed for the iPad app: everything the app needs, made on the Mac with the Python tools.
 
-`<out>/score.json`: title, composer, the bars (unfolded, in playing order) and every note of every part
-in quarter-note beats, each string part's loudness curve from the score's dynamics (`dynamics.py`:
-[beat, dB from mf] points, linear between them), and who leads where (the `.lead.yaml`, if there is
-one). `<out>/engraving.svg` and `<out>/anchors.json`: the score as drawn for reading (`engrave.py`).
+`<out>/score.json`: title, composer, work and movement (from `<score>.piece.yaml`, if there is one), the
+bars (unfolded, in playing order) and every note of every part in quarter-note beats, each string part's
+loudness curve from the score's dynamics (`dynamics.py`: [beat, dB from mf] points, linear between them),
+and who leads where (the `.lead.yaml`, if there is one). `<out>/engraving.svg` and `<out>/anchors.json`:
+the score as drawn for reading (`engrave.py`). Nothing needs annotating by hand: the leadership file and
+the piece file are optional.
 
 Golden fixtures for the app's engine (`fixtures`): recorded takes run through the Python accompanist,
 with what it played. The Swift port must play the same notes at the same times. The follower
@@ -13,6 +15,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
+import yaml
 
 from . import annotate, dynamics, engrave, midi_io, reference, session, simulate
 from .accompanist import STRING_PARTS
@@ -27,9 +31,13 @@ def export(score: Score, out: Path) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     lead_path = annotate.annotation_path(score.path)
     leadership = annotate.load(lead_path) if lead_path.exists() else None
+    meta_path = score.path.with_suffix(".piece.yaml")
+    meta = yaml.safe_load(meta_path.read_text()) if meta_path.exists() else {}
     data = {
         "title": score.title,
         "composer": score.composer,
+        "work": meta.get("work", score.title),  # for the library: works, with their movements under them
+        "movement": meta.get("movement", ""),
         "barStarts": [[beat, bar] for beat, bar in score.bar_starts()],
         "parts": {name: [[n.onset_beat, n.duration_beat, n.pitch] for n in score.notes(name)] for name in PARTS},
         "dynamics": {name: [list(p) for p in pts] for name, pts in dynamics.curves(score, STRING_PARTS).items()},

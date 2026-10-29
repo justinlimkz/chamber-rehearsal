@@ -1,0 +1,4 @@
+# How the piece is listed in the iPad app's library (`rehearsal bundle`). Without this file the library
+# uses the MusicXML's title as the work and leaves the movement blank.
+work: Piano Quartet in E-flat major, Op. 47
+movement: III. Andante cantabile

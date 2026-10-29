@@ -47,18 +47,20 @@ final class Strings: @unchecked Sendable {
     private let style: Style
     private let after: (Double, @escaping () -> Void) -> Void  // run later (delayed note-offs)
     private var parts: [String: Part] = [:]
+    private var mixers: [String: AVAudioMixerNode] = [:]  // one per part: its volume (and mute) in the mix
     private var nextID = 0
     private let lock = NSLock()
     private var ticking = false
     private var rng = SystemRandomNumberGenerator()
 
-    convenience init() throws {
+    /// `silent`: build the samplers but don't start the audio (screenshots in the Simulator, whose audio can hang).
+    convenience init(silent: Bool = false) throws {
         guard let font = Bundle.main.url(forResource: "strings", withExtension: "sf2") else {
             throw NSError(domain: "Rehearsal", code: 1, userInfo: [NSLocalizedDescriptionKey: "strings.sf2 missing from the app"])
         }
         let offs = DispatchQueue(label: "strings.offs", qos: .userInteractive)
         try self.init(engine: AVAudioEngine(), font: font) { offs.asyncAfter(deadline: .now() + $0, execute: $1) }
-        try engine.start()
+        if !silent { try engine.start() }
     }
 
     /// The sound graph on `engine`, not started (the offline renderer drives it in manual rendering mode).
@@ -71,18 +73,33 @@ final class Strings: @unchecked Sendable {
         engine.connect(bus, to: reverb, format: nil)
         engine.connect(reverb, to: engine.mainMixerNode, format: nil)
         for (part, program) in Self.programs {
+            let mix = AVAudioMixerNode()
+            engine.attach(mix)
+            engine.connect(mix, to: bus, format: nil)
+            mixers[part] = mix
             let pair = try [0, 1].map { bank in  // bank 1: the legato copies
                 let s = AVAudioUnitSampler()
                 engine.attach(s)
-                engine.connect(s, to: bus, format: nil)
+                engine.connect(s, to: mix, format: nil)
                 try s.loadSoundBankInstrument(at: font, program: UInt8(program),
                                               bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB), bankLSB: UInt8(bank))
                 return s
             }
             parts[part] = Part(pair[0], pair[1])
         }
-        engine.mainMixerNode.outputVolume = 0.6
+        engine.mainMixerNode.outputVolume = Self.fullVolume
     }
+
+    static let fullVolume: Float = 0.6  // the strings at "volume 1": balanced against the FP-30 at a normal level
+
+    /// All three parts together, 0...1 (Settings).
+    var volume: Float {
+        get { engine.mainMixerNode.outputVolume / Self.fullVolume }
+        set { engine.mainMixerNode.outputVolume = Self.fullVolume * max(0, min(1, newValue)) }
+    }
+
+    /// One part's level in the mix, 0...1; 0 mutes it (the strings popover).
+    func setVolume(_ part: String, _ v: Float) { mixers[part]?.outputVolume = max(0, min(1, v)) }
 
     func play(_ o: Out) {
         lock.lock(); defer { lock.unlock() }

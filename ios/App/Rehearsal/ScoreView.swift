@@ -2,12 +2,12 @@ import SwiftUI
 import WebKit
 
 // The engraved score that follows you: the same page the Mac serves to Safari (rehearsal/web/ipad.html),
-// in a web view. Its files come from the app bundle through the `rehearsal:` scheme; the session's state
-// goes in ten times a second (`receive`); taps and buttons come back as cues.
+// in a web view, without its header (the app draws the status strip and the controls). Its files come from
+// the app and the piece's folder through the `rehearsal:` scheme; the session's state goes in ten times a
+// second (`receive`); taps on bars come back as cues.
 
 struct ScoreView: UIViewRepresentable {
     let session: Session
-    static let piece = "schumann-op47-iii"
 
     func makeCoordinator() -> Coordinator { Coordinator(session) }
 
@@ -18,6 +18,8 @@ struct ScoreView: UIViewRepresentable {
         let web = WKWebView(frame: .zero, configuration: config)
         web.isInspectable = true  // Safari's Develop menu, from the Mac
         web.scrollView.bounces = false
+        web.isOpaque = false
+        web.backgroundColor = UIColor(Paper.color)
         web.load(URLRequest(url: URL(string: "rehearsal://app/ipad.html")!))
         context.coordinator.start(web)
         return web
@@ -25,11 +27,18 @@ struct ScoreView: UIViewRepresentable {
 
     func updateUIView(_ web: WKWebView, context: Context) {}
 
+    static func dismantleUIView(_ web: WKWebView, coordinator: Coordinator) {
+        coordinator.stop()
+        web.configuration.userContentController.removeScriptMessageHandler(forName: "rehearsal")
+    }
+
     final class Coordinator: NSObject, WKURLSchemeHandler, WKScriptMessageHandler {
         let session: Session
         private var timer: Timer?
 
         init(_ session: Session) { self.session = session }
+
+        func stop() { timer?.invalidate() }
 
         func start(_ web: WKWebView) {
             timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self, weak web] _ in
@@ -43,7 +52,7 @@ struct ScoreView: UIViewRepresentable {
 
         func webView(_ web: WKWebView, start task: WKURLSchemeTask) {
             let path = task.request.url?.path ?? ""
-            let piece = Bundle.main.url(forResource: ScoreView.piece, withExtension: nil)!
+            let piece = session.piece.url
             let body: Data?, type: String
             switch path {
             case "/ipad.html":
