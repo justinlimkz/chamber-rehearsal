@@ -288,7 +288,7 @@ def main(argv=None) -> int:
     bu.add_argument("--score", default=str(DEFAULT_SCORE))
     bu.add_argument("--out", default="ios/Bundles/schumann-op47-iii")
     bu.add_argument("--fixtures", help="also write the engine's golden test cases here (from takes/ and --sessions)")
-    bu.add_argument("--sessions", nargs="*", default=["20261028-150330", "20261028-150451"],
+    bu.add_argument("--sessions", nargs="*", default=["20261028-150330", "20261028-150451", "20261029-172728"],
                     help="saved live sessions (build/sessions/<name>.mid) to include as fixtures")
     bu.set_defaults(fn=cmd_bundle)
 

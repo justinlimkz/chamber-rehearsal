@@ -12,6 +12,7 @@ struct RehearseView: View {
     @State private var picking = false
     @State private var mixing = false
     @State private var listing = false
+    @AppStorage("pianoOnly") private var pianoOnly = false
 
     init(session: Session, onClose: @escaping () -> Void) {
         self.session = session
@@ -22,7 +23,7 @@ struct RehearseView: View {
     var body: some View {
         VStack(spacing: 0) {
             StatusStrip(live: live)
-            ScoreView(session: session)
+            ScoreView(session: session, pianoOnly: pianoOnly)
                 .ignoresSafeArea(edges: .bottom)
         }
         .background(Paper.color)
@@ -58,34 +59,59 @@ struct RehearseView: View {
                     .padding(.horizontal, 14).padding(.vertical, 6)
                     .glassEffect(.regular, in: .capsule)
             }
-            GlassEffectContainer(spacing: 12) {
-                HStack(spacing: 12) {
-                    Button { onClose() } label: { Label("Pieces", systemImage: "chevron.backward") }
-                        .buttonStyle(.glass)
-                    Button { session.cue("again") } label: { Text("Again").frame(minWidth: 70) }
-                        .buttonStyle(.glassProminent)
-                    Button { session.cue("top") } label: { Text("From the top") }
-                        .buttonStyle(.glass)
-                    Button { picking = true } label: { Text("Bar…") }
-                        .buttonStyle(.glass)
-                        .popover(isPresented: $picking) { BarPicker(session: session, live: live) { picking = false } }
-                    Button { session.cue(live.state == "paused" ? "resume" : "pause") } label: {
-                        Label(live.state == "paused" ? "Resume strings" : "Pause strings",
-                              systemImage: live.state == "paused" ? "play.fill" : "pause.fill")
-                    }
-                    .buttonStyle(.glass)
-                    .disabled(live.state == "finished")
-                    Button { mixing = true } label: { Image(systemName: "slider.horizontal.3").accessibilityLabel("Strings and tempo") }
-                        .buttonStyle(.glass)
-                        .popover(isPresented: $mixing) { StringsPanel(session: session, live: live) }
-                    Button { listing = true } label: { Image(systemName: "waveform").accessibilityLabel("Recordings") }
-                        .buttonStyle(.glass)
-                }
-                .controlSize(.extraLarge)
-                .font(.title3.weight(.medium))
+            ViewThatFits(in: .horizontal) {  // on a smaller iPad, icons stand in for some of the words
+                buttons(compact: false)
+                buttons(compact: true)
             }
         }
     }
+
+    private func buttons(compact: Bool) -> some View {
+        GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                Button { onClose() } label: { Label("Pieces", systemImage: "chevron.backward") }
+                    .buttonStyle(.glass)
+                    .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                Button { session.cue("again") } label: { Text("Again").frame(minWidth: 70) }
+                    .buttonStyle(.glassProminent)
+                Button { session.cue("top") } label: { Text(compact ? "Top" : "From the top") }
+                    .buttonStyle(.glass)
+                Button { picking = true } label: { Text("Bar…") }
+                    .buttonStyle(.glass)
+                    .popover(isPresented: $picking) { BarPicker(session: session, live: live) { picking = false } }
+                Button { session.cue(live.state == "paused" ? "resume" : "pause") } label: {
+                    Label(live.state == "paused" ? "Resume strings" : "Pause strings",
+                          systemImage: live.state == "paused" ? "play.fill" : "pause.fill")
+                }
+                .buttonStyle(.glass)
+                .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                .disabled(live.state == "finished")
+                if session.piece.hasPianoPart {
+                    Button { pianoOnly.toggle() } label: {
+                        Label(pianoOnly ? "Full score" : "Piano part", systemImage: pianoOnly ? "music.note.list" : "pianokeys")
+                    }
+                    .buttonStyle(.glass)
+                    .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                }
+                Button { mixing = true } label: { Image(systemName: "slider.horizontal.3").accessibilityLabel("Strings and tempo") }
+                    .buttonStyle(.glass)
+                    .popover(isPresented: $mixing) { StringsPanel(session: session, live: live) }
+                Button { listing = true } label: { Image(systemName: "waveform").accessibilityLabel("Recordings") }
+                    .buttonStyle(.glass)
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .controlSize(.extraLarge)
+            .font(.title3.weight(.medium))
+        }
+    }
+}
+
+/// Either label style, chosen at run time.
+struct AnyLabelStyle: LabelStyle {
+    private let make: (Configuration) -> AnyView
+    init<S: LabelStyle>(_ style: S) { make = { AnyView(style.makeBody(configuration: $0)) } }
+    func makeBody(configuration: Configuration) -> some View { make(configuration) }
 }
 
 /// Bar on the left, the state in the middle, the tempo on the right, at a size readable from the bench.

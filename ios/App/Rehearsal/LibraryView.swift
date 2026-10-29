@@ -101,7 +101,7 @@ struct LibraryView: View {
             .appendingPathComponent(url.deletingPathExtension().lastPathComponent)
         do {
             try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
-            for f in Piece.files where FileManager.default.fileExists(atPath: url.appendingPathComponent(f).path) {
+            for f in Piece.files + Piece.pianoFiles where FileManager.default.fileExists(atPath: url.appendingPathComponent(f).path) {
                 try FileManager.default.copyItem(at: url.appendingPathComponent(f), to: tmp.appendingPathComponent(f))
             }
             return try Piece(url: tmp, builtIn: false)

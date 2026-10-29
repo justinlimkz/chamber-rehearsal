@@ -8,8 +8,9 @@ import WebKit
 
 struct ScoreView: UIViewRepresentable {
     let session: Session
+    var pianoOnly = false  // the piano part alone, if the piece has it drawn
 
-    func makeCoordinator() -> Coordinator { Coordinator(session) }
+    func makeCoordinator() -> Coordinator { Coordinator(session, pianoOnly: pianoOnly) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -25,7 +26,12 @@ struct ScoreView: UIViewRepresentable {
         return web
     }
 
-    func updateUIView(_ web: WKWebView, context: Context) {}
+    func updateUIView(_ web: WKWebView, context: Context) {
+        if context.coordinator.pianoOnly != pianoOnly {
+            context.coordinator.pianoOnly = pianoOnly
+            web.reload()
+        }
+    }
 
     static func dismantleUIView(_ web: WKWebView, coordinator: Coordinator) {
         coordinator.stop()
@@ -34,9 +40,12 @@ struct ScoreView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKURLSchemeHandler, WKScriptMessageHandler {
         let session: Session
+        var pianoOnly: Bool
         private var timer: Timer?
 
-        init(_ session: Session) { self.session = session }
+        init(_ session: Session, pianoOnly: Bool) { self.session = session; self.pianoOnly = pianoOnly }
+
+        private var suffix: String { pianoOnly && session.piece.hasPianoPart ? "-piano" : "" }
 
         func stop() { timer?.invalidate() }
 
@@ -62,10 +71,10 @@ struct ScoreView: UIViewRepresentable {
                 body = try? JSONSerialization.data(withJSONObject: session.layout())
                 type = "application/json"
             case "/engraving.svg":
-                body = try? Data(contentsOf: piece.appendingPathComponent("engraving.svg"))
+                body = try? Data(contentsOf: piece.appendingPathComponent("engraving\(suffix).svg"))
                 type = "image/svg+xml"
             case "/anchors":
-                body = try? Data(contentsOf: piece.appendingPathComponent("anchors.json"))
+                body = try? Data(contentsOf: piece.appendingPathComponent("anchors\(suffix).json"))
                 type = "application/json"
             default:
                 body = nil; type = "text/plain"

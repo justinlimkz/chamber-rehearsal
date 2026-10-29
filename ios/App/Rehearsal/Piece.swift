@@ -18,6 +18,7 @@ struct Piece: Identifiable, Hashable, Sendable {
     let builtIn: Bool
 
     static let files = ["score.json", "engraving.svg", "anchors.json"]
+    static let pianoFiles = ["engraving-piano.svg", "anchors-piano.json"]  // the piano part alone (newer bundles)
     static let type = UTType(exportedAs: "kz.justinlim.rehearsal.piece")  // a bundle folder named *.rehearsal
 
     /// Read a bundle folder's description (not its notes: the session loads those).
@@ -34,6 +35,10 @@ struct Piece: Identifiable, Hashable, Sendable {
         movement = score.movement
         bars = Set(score.barStarts.map { $0.1 }).count
         strings = STRING_PARTS.filter { score.partNames.contains($0) }
+    }
+
+    var hasPianoPart: Bool {
+        Self.pianoFiles.allSatisfy { FileManager.default.fileExists(atPath: url.appendingPathComponent($0).path) }
     }
 
     /// "Robert Schumann" -> "Schumann"
@@ -116,7 +121,7 @@ final class Library {
         let dest = Self.folder.appendingPathComponent(piece.id, isDirectory: true)
         if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
         try fm.createDirectory(at: dest, withIntermediateDirectories: true)
-        for f in Piece.files {
+        for f in Piece.files + Piece.pianoFiles where fm.fileExists(atPath: piece.url.appendingPathComponent(f).path) {
             try fm.copyItem(at: piece.url.appendingPathComponent(f), to: dest.appendingPathComponent(f))
         }
         reload()

@@ -65,6 +65,10 @@ MIN_SCORE = 0.0  # below this the chord is treated as stray notes
 BETA_PER_COUPLING = 0.3 / 0.7  # period correction scales with the coupling
 WAIT_EXTRA = 0.15  # extra phase correction when the pianist is late: the strings wait a little
 HOME_PULL = 0.3  # per chord, at coupling 0, the period moves this fraction back to the strings' tempo
+# A lone piano note written off the quaver grid (a syncopated melody note, as in bar 31) says little about the
+# beat: pianists place such notes freely, or play them on the quaver. It moves the clock only a little and
+# leaves the tempo alone; the chords on the beat carry it (bar 31: the strings rushed to beat 3, 2026-10-29).
+OFFBEAT_ALPHA = 0.2
 
 
 @dataclass(frozen=True)
@@ -426,6 +430,8 @@ class Accompanist:
 
     def _correct(self, t: float, beat: float) -> float:
         """Correct the clock for a piano chord, coupled as the passage says (if there is an annotation)."""
+        if len(self.piano_pitches[beat]) == 1 and (2 * beat) % 1 != 0:
+            return self.clock.correct(t, beat, self.last_beat, alpha=OFFBEAT_ALPHA, beta=0.0)
         p = self.passage_at(beat)
         if p is None:
             return self.clock.correct(t, beat, self.last_beat)

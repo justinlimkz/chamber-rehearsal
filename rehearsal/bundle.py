@@ -4,8 +4,8 @@
 bars (unfolded, in playing order) and every note of every part in quarter-note beats, each string part's
 loudness curve from the score's dynamics (`dynamics.py`: [beat, dB from mf] points, linear between them),
 and who leads where (the `.lead.yaml`, if there is one). `<out>/engraving.svg` and `<out>/anchors.json`:
-the score as drawn for reading (`engrave.py`). Nothing needs annotating by hand: the leadership file and
-the piece file are optional.
+the score as drawn for reading (`engrave.py`), and `engraving-piano.svg`, `anchors-piano.json`: the piano
+part alone. Nothing needs annotating by hand: the leadership file and the piece file are optional.
 
 Golden fixtures for the app's engine (`fixtures`): recorded takes run through the Python accompanist,
 with what it played. The Swift port must play the same notes at the same times. The follower
@@ -48,6 +48,9 @@ def export(score: Score, out: Path) -> Path:
     svg, anchors = engrave.engrave(score.path)
     (out / "engraving.svg").write_text(svg)
     (out / "anchors.json").write_text(json.dumps(anchors))
+    svg, anchors = engrave.engrave(score.path, only="Piano")  # the piano part alone, larger
+    (out / "engraving-piano.svg").write_text(svg)
+    (out / "anchors-piano.json").write_text(json.dumps(anchors))
     return out
 
 
