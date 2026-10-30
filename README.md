@@ -75,6 +75,7 @@ against, along with a few tools. You need [uv](https://docs.astral.sh/uv/).
 uv run rehearsal bars --first 1 --last 8             # the score's bars, part by part
 uv run rehearsal simulate take.mid                   # the strings on a recorded take, offline, as a MIDI file
 uv run rehearsal session session.mid                 # timing of a session saved on the iPad
+uv run rehearsal check score.mxl                     # suspicious bars, e.g. after music recognition from a scan
 uv run rehearsal bundle --score <file.mxl> --out ~/Desktop/<name>.rehearsal
                                                     # a piece folder for the iPad, made on the Mac
 ```

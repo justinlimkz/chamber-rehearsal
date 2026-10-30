@@ -64,6 +64,18 @@ def cmd_session(args) -> int:
     return 0
 
 
+def cmd_check(args) -> int:
+    """Suspicious bars in a MusicXML score: rhythms that don't add up, notes out of range, ties to nowhere."""
+    from . import check
+
+    problems = check.check(Path(args.score))
+    for p in problems:
+        print(p)
+    bars = len({p.index for p in problems if p.bar})
+    print(f"{len(problems)} problems in {bars} bars" if problems else "no problems found")
+    return 1 if problems else 0
+
+
 def cmd_bundle(args) -> int:
     """Pack a piece for the iPad app; with --fixtures, also the engine's golden test cases."""
     from . import bundle
@@ -109,6 +121,10 @@ def main(argv=None) -> int:
     se.add_argument("--first", type=int, default=1)
     se.add_argument("--last", type=int, default=16)
     se.set_defaults(fn=cmd_session)
+
+    ch = sub.add_parser("check", help="suspicious bars in a MusicXML score (after music recognition, say)")
+    ch.add_argument("score")
+    ch.set_defaults(fn=cmd_check)
 
     bu = sub.add_parser("bundle", help="pack a piece for the iPad app; also the test fixtures")
     bu.add_argument("--score", default=str(DEFAULT_SCORE))
