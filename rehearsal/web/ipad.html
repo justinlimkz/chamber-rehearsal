@@ -353,8 +353,9 @@ function engrave() {
   }, 30);
 }
 
-// From the app: which parts to show and how large (1 = the Mac's size on a 13-inch iPad in portrait).
-window.setView = (v) => { view = { ...view, ...v }; if (tk) engrave(); };
+// From the app: which parts to show and how large (1 = the Mac's size on a 13-inch iPad in portrait). The whole
+// look each time; the app leaves `parts` out for the full score, so it isn't kept from the last view.
+window.setView = (v) => { view = { parts: null, size: 1, ...v }; if (tk) engrave(); };
 
 fetch("/score").then((r) => r.json()).then(async (l) => {
   layout = l;

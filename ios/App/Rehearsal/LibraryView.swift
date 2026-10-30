@@ -111,6 +111,35 @@ struct LibraryView: View {
     }
 
     private func continueCard(_ piece: Piece, _ last: LastVisit) -> some View {
+        ViewThatFits(in: .horizontal) {  // the bars beside the words where there's room, above them where not
+            HStack(alignment: .top, spacing: 24) {
+                continuePreview(piece, last).frame(width: 340)
+                continueText(piece, last).frame(minWidth: 380, alignment: .leading)
+            }
+            VStack(alignment: .leading, spacing: 18) {
+                continuePreview(piece, last)
+                continueText(piece, last)
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18).fill(.white))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Paper.line))
+    }
+
+    /// The bars you'll continue from, the first of them shaded.
+    private func continuePreview(_ piece: Piece, _ last: LastVisit) -> some View {
+        Group {
+            if piece.engravable {
+                ScorePreview(piece: piece, first: last.bar, mark: last.bar)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Paper.color))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Paper.line))
+            }
+        }
+    }
+
+    private func continueText(_ piece: Piece, _ last: LastVisit) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Continue · \(piece.composer)").font(.subheadline.weight(.semibold)).foregroundStyle(Paper.blue)
             Text(piece.work).font(.system(.title2, design: .serif))
@@ -128,10 +157,6 @@ struct LibraryView: View {
             .controlSize(.large)
             .padding(.top, 4)
         }
-        .padding(22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 18).fill(.white))
-        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Paper.line))
     }
 
     private func work(_ composer: String, _ work: String, _ movements: [Piece]) -> some View {
@@ -199,6 +224,9 @@ struct AddPieceView: View {
                         Text("\(piece.bars) bars").font(.callout).foregroundStyle(Paper.muted)
                     }
                     .padding(.vertical, 6)
+                }
+                if piece.engravable {
+                    Section { ScorePreview(piece: piece, first: 1).padding(.vertical, 6) }
                 }
                 Section {
                     LabeledContent("You play", value: "Piano")
