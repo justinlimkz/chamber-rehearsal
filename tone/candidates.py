@@ -73,6 +73,22 @@ CANDIDATES: dict[str, dict] = {
         "app_size": "4.2 MB (no change)",
         "realtime": REALTIME_SAMPLER,
     },
+    "expressive": {
+        "font": lambda: APP_FONT,
+        "description": "One player's reading on top of the score's dynamics (rehearsal/dynamics.py Expression: marked levels 1.4x wider, phrase arches of 4 dB to the highest note, 3 dB swells on held notes), velocity picking the cello's soft/medium/loud layers, parts seated left to right, a treble shelf (-6 dB at soft expression, flat at loud), viola and cello 12/6 ms behind.",
+        "licence": "MIT (as current)",
+        "app_size": "4.2 MB (no change)",
+        "realtime": REALTIME_SAMPLER,
+    },
+    "expressive-subtle": {
+        "font": lambda: APP_FONT,
+        "variant": "subtle",
+        "style": {"dark": -3},
+        "description": "As `expressive` at under half strength: levels 1.15x, arches 1.5 dB, swells 1.25 dB, shelf -3 dB (same seating and lag).",
+        "licence": "MIT (as current)",
+        "app_size": "4.2 MB (no change)",
+        "realtime": REALTIME_SAMPLER,
+    },
     "current-plus": {
         "font": current_plus_font,
         "style": PLUS,

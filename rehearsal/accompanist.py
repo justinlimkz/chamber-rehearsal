@@ -100,7 +100,7 @@ class Accompanist:
     velocity: int = 80  # every note, without dynamics
     leadership: list[Passage] | None = None  # None: the piano always leads
     dynamics: bool = True  # loudness from the score's dynamics (dynamics.py): expression (CC11) following the
-                           # marked levels and hairpins, through held notes too; notes at TOP_VELOCITY
+                           # marked levels, hairpins and phrasing, through held notes too; velocity picks the layer
 
     def __post_init__(self) -> None:
         starts = self.score.bar_starts()
@@ -130,6 +130,7 @@ class Accompanist:
         self.faded: dict[str, int] = {}  # current expression of parts being faded
         self.dyn: dict[str, int] = {}  # per part, the expression the dynamics ask for (127 if not set)
         self.expr: dict[str, int] = {}  # per part, the expression last sent: dynamics times fade (127 if not sent)
+        self.layer: dict[str, int] = {}  # per part, the velocity of its notes (the sample layer), set as a phrase starts
         self.restart_from = self.piano_onsets[0]  # piano chord a restart is expected at...
         self.restart_back = 0.0  # ...or up to this many beats before it
         self.last_start = self.start_beat  # for "again"
@@ -265,9 +266,13 @@ class Accompanist:
                 t_on = min(t_on, now)  # the pianist already played this beat, earlier than predicted: come in now
             if t_on > now:
                 break
+            velocity = n.velocity
             if self.levels:
+                if not any(m.part == n.part for _, m in self.sounding):  # a phrase starts: its sample layer
+                    self.layer[n.part] = dynamics.layer_velocity(dynamics.level_at(self.levels[n.part], n.onset_beat))
+                velocity = self.layer[n.part]
                 self._dynamics(t_on, n.part, n.onset_beat, out)
-            out.append(Out(t_on, "on", n.part, n.pitch, n.velocity, n.onset_beat))
+            out.append(Out(t_on, "on", n.part, n.pitch, velocity, n.onset_beat))
             self.sounding.append((n.onset_beat + n.duration_beat, n))
             self.next_note += 1
         if self.levels:  # hairpins go on through held notes
@@ -319,7 +324,7 @@ class Accompanist:
 
     def _dynamics(self, t: float, part: str, beat: float, out: list[Out]) -> None:
         """Send the part's expression for the dynamics at `beat`, if it changed."""
-        self.dyn[part] = dynamics.velocity(dynamics.level_at(self.levels[part], beat))
+        self.dyn[part] = dynamics.expression(dynamics.level_at(self.levels[part], beat), self.layer.get(part, 127))
         value = _scale(self.dyn[part], self.faded.get(part, 127))
         if value != self.expr.get(part, 127):
             self.expr[part] = value

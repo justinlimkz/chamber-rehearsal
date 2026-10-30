@@ -6,6 +6,7 @@
 //   render play <font.sf2> <events.json> <out.wav> [key=value ...]
 //       Plays events (from `events`, or written by tone/clips.py) through Strings in manual rendering mode.
 //       keys: legato=0|1 swell=0|1 vibrato=lo-hi (CC1 range) vibparts=Violin,... mix=<reverb %> seed=<n>
+//             seat=0 (all parts centred) dark=<dB> (treble shelf at soft expression; 0: none) lag=0 (no part lag)
 import AVFoundation
 import RehearsalCore
 
@@ -38,6 +39,9 @@ if let v = opts["swell"] { style.swell = v == "1" }
 if let v = opts["vibrato"] { let r = v.split(separator: "-").map { Int($0)! }; style.vibrato = r[0]...r[1] }
 if let v = opts["vibparts"] { style.vibratoParts = Set(v.split(separator: ",").map(String.init)) }
 if let v = opts["mix"] { style.reverbMix = Float(v)! }
+if opts["seat"] == "0" { style.seating = [:] }
+if let v = opts["dark"] { style.darkDB = Float(v)! }
+if opts["lag"] == "0" { style.lag = [:] }
 
 let rows = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: a[3]))) as! [[Any]]
 let events = rows.map { r in

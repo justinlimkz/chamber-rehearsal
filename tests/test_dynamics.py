@@ -26,7 +26,7 @@ def test_level_ramps_between_points_and_steps_where_two_share_a_beat():
 
 def test_opening_f_diminuendo_to_p(score):
     """Bar 1: f with a diminuendo to the p marked in bar 2, in every string part."""
-    for name, pts in dynamics.curves(score, STRING_PARTS).items():
+    for name, pts in dynamics.curves(score, STRING_PARTS, ex=None).items():
         assert dynamics.level_at(pts, 1.0) == dynamics.LEVELS_DB["f"]
         assert dynamics.level_at(pts, 3.0) == dynamics.LEVELS_DB["p"]
         assert dynamics.LEVELS_DB["p"] < dynamics.level_at(pts, 2.0) < dynamics.LEVELS_DB["f"]
@@ -39,18 +39,30 @@ def test_hairpins_without_a_target_stay_within_a_step_of_the_marking(score):
         assert min(v for _, v in pts) >= dynamics.LEVELS_DB["pp"] - dynamics.STEP_DB
 
 
-def test_expression_follows_the_diminuendo_through_the_held_opening(score):
-    """Bar 1 is one held note per part under a diminuendo: the expression falls while it sounds, in small
-    steps, instead of the next note starting a step quieter."""
+def test_expression_shapes_the_held_opening(score):
+    """Bar 1 is one held chord per part under f > p: the expression moves while it sounds, in small steps,
+    instead of the next note starting at a new level. The chord starts a phrase at f: the loud sample layer."""
     take = synth.make_take(score, 1, 4, rubato=0.0, jitter_ms=0.0)
     res = simulate.run(score, take.events, 1, 4, follow=False)
-    on = min(o.time for o in res.outs if o.kind == "on" and o.part == "Violin")
-    second = sorted(o.time for o in res.outs if o.kind == "on" and o.part == "Violin")[1]
-    expr = [o.velocity for o in res.outs if o.kind == "expr" and o.part == "Violin" and on <= o.time < second]
-    assert expr[0] == dynamics.velocity(dynamics.LEVELS_DB["f"])
-    assert len(expr) > 10 and expr == sorted(expr, reverse=True)
-    assert max(a - b for a, b in zip(expr, expr[1:])) <= 2
-    assert {o.velocity for o in res.outs if o.kind == "on"} == {dynamics.TOP_VELOCITY}
+    ons = sorted(o.time for o in res.outs if o.kind == "on" and o.part == "Violin")
+    expr = [o.velocity for o in res.outs if o.kind == "expr" and o.part == "Violin" and ons[0] <= o.time < ons[1]]
+    assert len(expr) > 10 and max(abs(a - b) for a, b in zip(expr, expr[1:])) <= 2
+    assert expr[-1] < expr[0]  # f to p
+    first = min((o for o in res.outs if o.kind == "on" and o.part == "Violin"), key=lambda o: o.time)
+    assert first.velocity == 127
+
+
+def test_phrase_rises_to_its_highest_note_and_layers_follow_the_level(score):
+    notes = score.notes("Violin")
+    ph = max(dynamics.phrases(notes), key=len)
+    top = max(ph, key=lambda n: (n.pitch, n.duration_beat, -n.onset_beat))
+    plain = dynamics.curves(score, ["Violin"], ex=None)["Violin"]
+    shaped = dynamics.curves(score, ["Violin"])["Violin"]
+    lift = lambda b: dynamics.level_at(shaped, b) - dynamics.EXPRESSION.range * dynamics.level_at(plain, b)
+    if top.onset_beat > ph[0].onset_beat:
+        assert lift(top.onset_beat) > lift(ph[0].onset_beat)
+    assert [dynamics.layer_velocity(db) for db in (-9, -2, 3)] == [79, 102, 127]
+    assert dynamics.expression(0.0, 127) == 80 and dynamics.expression(0.0, 102) == 100  # a softer layer: more expression
 
 
 def test_accompanist_without_dynamics_plays_one_velocity(score):

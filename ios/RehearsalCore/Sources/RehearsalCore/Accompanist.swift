@@ -141,6 +141,7 @@ public final class Accompanist {
     var faded: [(part: String, level: Int)] = []
     var dyn: [String: Int] = [:]  // per part, the expression the dynamics ask for (127 if not set)
     var expr: [String: Int] = [:]  // per part, the expression last sent: dynamics times fade (127 if not sent)
+    var layer: [String: Int] = [:]  // per part, the velocity of its notes (the sample layer), set as a phrase starts
     public private(set) var restartFrom: Double
     var restartBack = 0.0
     var lastStart: Double  // for "again"
@@ -330,8 +331,15 @@ public final class Accompanist {
                 tOn = min(tOn, now)  // the pianist already played this beat, earlier than predicted: come in now
             }
             if tOn > now { break }
-            if levels != nil { sendDynamics(tOn, n.part, n.onsetBeat, &out) }
-            out.append(Out(tOn, "on", n.part, pitch: n.pitch, velocity: n.velocity, beat: n.onsetBeat))
+            var velocity = n.velocity
+            if let levels {
+                if !sounding.contains(where: { $0.note.part == n.part }) {  // a phrase starts: its sample layer
+                    layer[n.part] = layerVelocity(levelAt(levels[n.part] ?? [], n.onsetBeat))
+                }
+                velocity = layer[n.part]!
+                sendDynamics(tOn, n.part, n.onsetBeat, &out)
+            }
+            out.append(Out(tOn, "on", n.part, pitch: n.pitch, velocity: velocity, beat: n.onsetBeat))
             sounding.append((n.onsetBeat + n.durationBeat, n))
             nextNote += 1
         }
@@ -415,7 +423,7 @@ public final class Accompanist {
 
     /// Send the part's expression for the dynamics at `beat`, if it changed.
     private func sendDynamics(_ t: Double, _ part: String, _ beat: Double, _ out: inout [Out]) {
-        let d = dynamicsVelocity(levelAt(levels![part] ?? [], beat))
+        let d = expressionFor(levelAt(levels![part] ?? [], beat), layer[part] ?? 127)
         dyn[part] = d
         let value = scaleExpression(d, faded.first(where: { $0.part == part })?.level ?? 127)
         if value != (expr[part] ?? 127) {

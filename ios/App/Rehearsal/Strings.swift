@@ -30,6 +30,14 @@ final class Strings: @unchecked Sendable {
         var vibrato: ClosedRange<Int>? = nil  // CC1 per bowed (not joined-on) note, random in this range: the depth
                                               // of the font's vibrato LFO (fonts from tone/ set its rate and delay)
         var vibratoParts: Set<String>? = nil  // nil: every part (recordings with their own vibrato need none)
+        // The players in a room (compared with a real recording, 2026-10-29: ours was nearly mono, brighter, and the
+        // same colour at every dynamic). Each part has its own place left to right; its treble opens up as it
+        // plays louder (a high shelf, `darkDB` down at the softest expression, flat at the loudest); and the viola
+        // and cello come in a few milliseconds after the violin, as players never quite coincide.
+        var seating: [String: Float] = ["Violin": -0.7, "Viola": 0.2, "Violoncello": 0.65]  // pan, -1 left ... 1 right
+        var darkDB: Float = -6  // 0: no shelf
+        var shelfHz: Float = 2000
+        var lag: [String: Double] = ["Viola": 0.012, "Violoncello": 0.006]  // seconds
     }
 
     private struct Note { let sampler: AVAudioUnitSampler; let start: Double; let id: Int }
@@ -38,6 +46,7 @@ final class Strings: @unchecked Sendable {
         var sounding: [Int: Note] = [:]  // by pitch, including notes held past their engine note-off
         var lastOff = -Double.infinity  // engine time of the part's last note-off
         var expr = 127  // the engine's expression (it fades parts out when the pianist stops)
+        var shelf: AVAudioUnitEQ?
         var held = 0.0, level = 0.88  // swell: seconds since the last note-on, and the swell's current gain
         var sent = 127  // CC11 last sent
         init(_ attack: AVAudioUnitSampler, _ legato: AVAudioUnitSampler) { self.attack = attack; self.legato = legato }
@@ -75,17 +84,32 @@ final class Strings: @unchecked Sendable {
         for (part, program) in Self.programs {
             let mix = AVAudioMixerNode()
             engine.attach(mix)
-            engine.connect(mix, to: bus, format: nil)
+            var shelf: AVAudioUnitEQ? = nil
+            if style.darkDB != 0 {  // samplers -> part mixer -> shelf -> bus
+                let eq = AVAudioUnitEQ(numberOfBands: 1)
+                eq.bands[0].filterType = .highShelf
+                eq.bands[0].frequency = style.shelfHz
+                eq.bands[0].bypass = false
+                eq.bands[0].gain = style.darkDB
+                engine.attach(eq)
+                engine.connect(mix, to: eq, format: nil)
+                engine.connect(eq, to: bus, format: nil)
+                shelf = eq
+            } else {
+                engine.connect(mix, to: bus, format: nil)
+            }
             mixers[part] = mix
             let pair = try [0, 1].map { bank in  // bank 1: the legato copies
                 let s = AVAudioUnitSampler()
                 engine.attach(s)
                 engine.connect(s, to: mix, format: nil)
+                s.pan = style.seating[part] ?? 0
                 try s.loadSoundBankInstrument(at: font, program: UInt8(program),
                                               bankMSB: UInt8(kAUSampler_DefaultMelodicBankMSB), bankLSB: UInt8(bank))
                 return s
             }
             parts[part] = Part(pair[0], pair[1])
+            parts[part]!.shelf = shelf
         }
         engine.mainMixerNode.outputVolume = Self.fullVolume
     }
@@ -102,6 +126,14 @@ final class Strings: @unchecked Sendable {
     func setVolume(_ part: String, _ v: Float) { mixers[part]?.outputVolume = max(0, min(1, v)) }
 
     func play(_ o: Out) {
+        if let lag = style.lag[o.part], lag > 0, o.kind != "expr" {
+            after(lag) { [self] in playNow(o) }
+        } else {
+            playNow(o)
+        }
+    }
+
+    private func playNow(_ o: Out) {
         lock.lock(); defer { lock.unlock() }
         guard let p = parts[o.part] else { return }
         switch o.kind {
@@ -165,6 +197,10 @@ final class Strings: @unchecked Sendable {
         guard v != p.sent else { return }
         p.sent = v
         for s in [p.attack, p.legato] { s.sendController(11, withValue: UInt8(v), onChannel: 0) }
+        if let eq = p.shelf {  // the treble opens with the expression: dark at CC11 40 and below, flat at 127
+            let open = Float(min(max(Double(v - 40) / 87, 0), 1))
+            eq.bands[0].gain = style.darkDB * (1 - open)
+        }
     }
 
     /// After an interruption (a call, Siri) or a route change, start the engine again.

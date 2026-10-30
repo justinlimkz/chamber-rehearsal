@@ -28,6 +28,7 @@ CLIPS = {  # id -> (title, what to listen for)
     "faster": ("Quick notes, bars 75–78", "The violin's semiquavers: do they speak cleanly and in time, not smeared or clipped?"),
     "trio-48-51": ("The trio, bars 48–51", "Quiet, with small swells. Does the line breathe, or does every note come out the same?"),
     "trio-66-69": ("The trio, bars 66–69", "A crescendo into forte, then swells. Does it build and fall back like players would?"),
+    "theme-4-11": ("The cello's theme, bars 4–11", "The melody over the violin and viola. Does it sound like a player shaping a phrase, in a room?"),
 }
 
 

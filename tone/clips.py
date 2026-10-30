@@ -32,6 +32,7 @@ SCORE_CLIPS = {
     "faster": (75, 78, ["Violin", "Viola", "Violoncello"]),  # the violin's semiquaver runs (bars 75-89), the quickest
     "trio-48-51": (48, 51, ["Violin", "Viola", "Violoncello"]),  # p, with paired crescendo/diminuendo hairpins
     "trio-66-69": (66, 69, ["Violin", "Viola", "Violoncello"]),  # crescendo into the f of bar 67, then hairpins
+    "theme-4-11": (4, 11, ["Violin", "Viola", "Violoncello"]),  # the cello's theme (compared with real players)
 }
 # long-note: each instrument's longest-held pitch in the movement (violin D4 bar 112, viola G3 bar 107, cello B-flat2
 # bar 120), 4 s each, faded out over the last 1.5 s with CC11 the way the engine fades (steps of 8)

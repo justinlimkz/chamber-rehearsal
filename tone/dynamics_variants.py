@@ -15,7 +15,7 @@ from rehearsal.score import Score
 ROOT = Path(__file__).resolve().parents[1]
 BUNDLE = ROOT / "ios/Bundles/schumann-op47-iii/score.json"
 OUT = ROOT / "build/tone/scores"
-VARIANTS = {"gentle": dict(step_db=3.0, ease=8), "gentler": dict(step_db=2.0, ease=8)}
+VARIANTS = {"gentle": dict(step_db=3.0, ease=8), "gentler": dict(step_db=2.0, ease=8), "subtle": dict(ex=dynamics.SUBTLE)}
 
 
 def main() -> None:

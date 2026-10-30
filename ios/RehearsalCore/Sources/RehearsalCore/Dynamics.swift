@@ -11,6 +11,17 @@ func dynamicsVelocity(_ db: Double) -> Int {
     min(127, max(1, Int(Double(MF_VELOCITY) * pow(10, db / 40) + 0.5)))
 }
 
+/// Sample layers (dynamics.LAYERS): the velocity for a phrase starting at a level, inside the cello's soft, medium
+/// and loud layers.
+let LAYERS: [(top: Double, velocity: Int)] = [(-5.0, 79), (0.0, 102), (.infinity, 127)]
+
+func layerVelocity(_ db: Double) -> Int { LAYERS.first { db <= $0.top }!.velocity }
+
+/// CC11 that brings notes of `noteVelocity` to the level `db` (dynamics.expression).
+func expressionFor(_ db: Double, _ noteVelocity: Int) -> Int {
+    dynamicsVelocity(db - 40 * log10(Double(noteVelocity) / Double(TOP_VELOCITY)))
+}
+
 /// The level at `beat` on (beat, dB) points, linear between them; a step is two points at one beat (the later wins).
 func levelAt(_ points: [(Double, Double)], _ beat: Double) -> Double {
     if points.isEmpty { return 0 }
