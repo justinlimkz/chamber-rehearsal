@@ -111,6 +111,8 @@ def main() -> None:
     for c in names:
         spec = candidates.CANDIDATES[c]
         tag = event_tag(spec)
+        if tag not in clips and spec.get("events"):  # made beforehand, e.g. by an earlier engine
+            clips[tag] = {f.name.removesuffix(f"{tag}.json"): json.loads(f.read_text()) for f in (OUT / "clips").glob(f"*{tag}.json")}
         if tag not in clips:
             clips[tag] = clip_events(bool(spec.get("flat")), spec.get("variant"))
         print(c)
@@ -118,6 +120,8 @@ def main() -> None:
 
 
 def event_tag(spec: dict) -> str:
+    if spec.get("events"):
+        return f".{spec['events']}"
     return ".flat" if spec.get("flat") else f".{spec['variant']}" if spec.get("variant") else ""
 
 

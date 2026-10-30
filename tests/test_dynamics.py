@@ -67,11 +67,18 @@ def test_phrase_rises_to_its_highest_note_and_layers_follow_the_level(score):
 
 def test_layer_holds_for_a_phrase(score):
     """Joined notes stop a little early (LEGATO), so the part is briefly silent before each one: that gap is not a
-    rest, and the sample layer stays the phrase's (picked again at each note, CC11 jumped on the old note's tail)."""
+    rest, and the sample layer doesn't drop there (it was picked again at each note, and CC11 jumped up on the old
+    note's tail). It may move up as the phrase gets louder."""
     take = synth.make_take(score, 1, 4, rubato=0.0, jitter_ms=0.0)
     res = simulate.run(score, take.events, 1, 4, follow=False)
     cello = sorted((o for o in res.outs if o.kind == "on" and o.part == "Violoncello"), key=lambda o: o.time)
     assert cello[0].beat < cello[1].beat and cello[1].velocity == cello[0].velocity  # bar 1's E into bar 2's F
+    for part in ("Violin", "Viola", "Violoncello"):  # within a phrase, a layer only ever moves up
+        ons = sorted((o for o in res.outs if o.kind == "on" and o.part == part), key=lambda o: o.time)
+        phrase_of = {n.onset_beat: i for i, ph in enumerate(dynamics.phrases(score.notes(part))) for n in ph}
+        for a, b in zip(ons, ons[1:]):
+            if phrase_of[a.beat] == phrase_of[b.beat]:
+                assert b.velocity >= a.velocity
 
 
 def test_accompanist_without_dynamics_plays_one_velocity(score):

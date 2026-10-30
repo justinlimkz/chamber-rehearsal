@@ -23,7 +23,7 @@ final class Strings: @unchecked Sendable {
         // The engine stops notes at 0.95 of their length (LEGATO), a 25-200 ms gap here: hold each note through
         // that gap and this much beyond it, so the next note starts under the old one.
         var overlapS = 0.05
-        var handoverS: Double? = 0.02  // a held-over note stops this long after the part's next note starts (nil: not early)
+        var handoverS: Double? = 0  // a held-over note stops this long after the part's next note starts (nil: not early)
         var fillGap = true
         var reverbMix: Float = 22  // percent wet
         var reverb = AVAudioUnitReverbPreset.mediumHall
