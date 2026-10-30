@@ -5,6 +5,7 @@ Each bar of each part, as written (repeats not played out):
 - a bar whose notes run past its time signature, or don't fill it (the usual sign of a misread rhythm, dot or
   tuplet);
 - parts with different numbers of bars;
+- bars with nothing in them (not even a rest);
 - notes out of the instrument's range (often a misread clef or octave line);
 - a tie that isn't continued at the same pitch by the end of the next bar.
 A short first bar is a pickup, a short last bar its complement, and a bar marked `implicit` is meant to be short;
@@ -117,6 +118,8 @@ def check(path: Path) -> list[Problem]:
                 if end > nominal:
                     which = f"voice {voice}: " if len(ends) > 1 else ""
                     problems.append(Problem(label, bar, i, f"{which}{_beats(end)} in a bar of {_beats(nominal)}"))
+            if not ends and m.find("measure-style/multiple-rest") is None:
+                problems.append(Problem(label, bar, i, "no notes or rests at all"))
             full = max(ends.values(), default=nominal)
             if full < nominal and not short_ok:
                 problems.append(Problem(label, bar, i, f"{_beats(full)} in a bar of {_beats(nominal)}"))

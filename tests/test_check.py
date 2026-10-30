@@ -20,10 +20,15 @@ def test_finds_what_music_recognition_gets_wrong(tmp_path):
                         "<step>E</step><octave>3</octave></pitch><duration>2</duration>", 1)
     text = text.replace('<duration>4</duration><type>half</type><tie type="stop"/>',
                         "<duration>4</duration><type>half</type>", 1)
+    # bar 4 of the violin lost everything
+    i = text.index('<measure number="4">')
+    j = text.index("</measure>", i)
+    text = text[:i] + '<measure number="4">' + text[j:]
     path = tmp_path / "omr.musicxml"
     path.write_text(text)
     found = {(p.bar, p.part, p.text) for p in check.check(path)}
     assert ("1", "Violin", "5 beats in a bar of 4 beats") in found
     assert ("2", "Violin", "E3 is out of range") in found
     assert ("2", "Violin", "a tie on F#5 leads nowhere") in found
-    assert len(found) == 3
+    assert ("4", "Violin", "no notes or rests at all") in found
+    assert len(found) == 4
