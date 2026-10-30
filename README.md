@@ -11,6 +11,11 @@ It began with Schumann's Piano Quartet, Op. 47 (the third movement), and it can 
 and up to one each of violin, viola and cello. You add a piece from a MusicXML file. Nothing needs marking up by
 hand.
 
+![The library, with the bars to continue from, and the rehearse screen: the score with a status strip above it and the controls below](docs/screenshots.png)
+
+*Left: the library. Right: the rehearse screen, waiting to start from bar 32 (outlined). The controls show only
+while the strings are stopped.*
+
 > **Status:** a working prototype, used daily by one pianist. Expect rough edges.
 
 ## What you need

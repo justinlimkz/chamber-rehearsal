@@ -36,7 +36,8 @@ final class Keyboard: @unchecked Sendable {
                 names.append(cf.takeRetainedValue() as String)
             }
         }
-        let now = names.first
+        // Simulator screenshots: REHEARSAL_KEYBOARD=<name> stands in for a piano
+        let now = names.first ?? (Rig.silent ? ProcessInfo.processInfo.environment["REHEARSAL_KEYBOARD"] : nil)
         if now != name || !announced {
             name = now
             announced = true
