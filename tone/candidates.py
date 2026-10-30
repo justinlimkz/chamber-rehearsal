@@ -114,7 +114,7 @@ CANDIDATES: dict[str, dict] = {
         "font": lambda: APP_FONT,
         "events": "r6engine",
         "style": {"handover": 0},
-        "description": "Round 6's engine (a part picks its sample layer afresh whenever it has nothing sounding, so in a joined line at nearly every note, and the cello's timbre follows a crescendo), with the held-over note ending as the next one starts. Events made by f2c205d's `render events` into build/tone/clips/<clip>.r6engine.json.",
+        "description": "Round 6's engine (a part picks its sample layer afresh whenever it has nothing sounding, so in a joined line at nearly every note, and the cello's timbre follows a crescendo), with the held-over note ending as the next one starts. Events made by 8944b55's `render events` into build/tone/clips/<clip>.r6engine.json.",
         "licence": "MIT (as current)",
         "app_size": "4.2 MB (no change)",
         "realtime": REALTIME_SAMPLER,
