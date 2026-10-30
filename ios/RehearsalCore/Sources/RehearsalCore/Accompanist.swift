@@ -142,6 +142,9 @@ public final class Accompanist {
     var dyn: [String: Int] = [:]  // per part, the expression the dynamics ask for (127 if not set)
     var expr: [String: Int] = [:]  // per part, the expression last sent: dynamics times fade (127 if not sent)
     var layer: [String: Int] = [:]  // per part, the velocity of its notes (the sample layer), set as a phrase starts
+    // per part, the onset of its last note and the written end of its phrase so far: a phrase starts after a
+    // written rest (not the gap LEGATO leaves between joined notes) or when the strings go back
+    var phrase: [String: (last: Double, end: Double)] = [:]
     public private(set) var restartFrom: Double
     var restartBack = 0.0
     var lastStart: Double  // for "again"
@@ -333,9 +336,12 @@ public final class Accompanist {
             if tOn > now { break }
             var velocity = n.velocity
             if let levels {
-                if !sounding.contains(where: { $0.note.part == n.part }) {  // a phrase starts: its sample layer
+                var (last, end) = phrase[n.part] ?? (.infinity, -.infinity)
+                if n.onsetBeat < last || n.onsetBeat - end >= PHRASE_GAP {  // a phrase starts
                     layer[n.part] = layerVelocity(levelAt(levels[n.part] ?? [], n.onsetBeat))
+                    end = -.infinity
                 }
+                phrase[n.part] = (n.onsetBeat, max(end, n.onsetBeat + n.durationBeat))
                 velocity = layer[n.part]!
                 sendDynamics(tOn, n.part, n.onsetBeat, &out)
             }

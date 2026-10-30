@@ -8,7 +8,9 @@ import RehearsalCore
 // Legato: every sample begins with a bow attack, and replaying it on each note of a slurred line makes the notes
 // sound separate. So each part has two samplers: one with the full attack, for notes after a rest, and one with
 // the font's legato copies (bank 1: they start past the attack and fade in), for notes that join on to the one
-// before. Note-offs also wait a little, so the next note starts under the old one instead of after a gap.
+// before. Note-offs also wait a little, so the next note starts under the old one instead of after a gap; but
+// only until it does: a player's old note ends as the new one begins, and holding it on past that (2026-10-30)
+// made a semitone clash and then a dip at every change of chord.
 
 final class Strings: @unchecked Sendable {
     static let programs = ["Violin": 40, "Viola": 41, "Violoncello": 42]  // General MIDI
@@ -21,6 +23,7 @@ final class Strings: @unchecked Sendable {
         // The engine stops notes at 0.95 of their length (LEGATO), a 25-200 ms gap here: hold each note through
         // that gap and this much beyond it, so the next note starts under the old one.
         var overlapS = 0.05
+        var handoverS: Double? = 0.02  // a held-over note stops this long after the part's next note starts (nil: not early)
         var fillGap = true
         var reverbMix: Float = 22  // percent wet
         var reverb = AVAudioUnitReverbPreset.mediumHall
@@ -40,7 +43,7 @@ final class Strings: @unchecked Sendable {
         var lag: [String: Double] = ["Viola": 0.012, "Violoncello": 0.006]  // seconds
     }
 
-    private struct Note { let sampler: AVAudioUnitSampler; let start: Double; let id: Int }
+    private struct Note { let sampler: AVAudioUnitSampler; let start: Double; let id: Int; var over = false }  // over: held past its note-off
     private final class Part {
         let attack: AVAudioUnitSampler, legato: AVAudioUnitSampler
         var sounding: [Int: Note] = [:]  // by pitch, including notes held past their engine note-off
@@ -143,6 +146,13 @@ final class Strings: @unchecked Sendable {
             }
             let joins = o.time - p.lastOff < style.joinS || p.sounding.values.contains { o.time - $0.start > style.chordS }
             let s = style.legato && joins ? p.legato : p.attack
+            if let h = style.handoverS {  // the part's held-over notes end as this one begins
+                for (pitch, n) in p.sounding where n.over {
+                    let stop = { guard p.sounding[pitch]?.id == n.id else { return }; p.sounding[pitch] = nil
+                                 n.sampler.stopNote(UInt8(pitch), onChannel: 0) }
+                    if h <= 0 { stop() } else { after(h) { [self] in lock.lock(); defer { lock.unlock() }; stop() } }
+                }
+            }
             if let depth = style.vibrato, !joins, style.vibratoParts?.contains(o.part) ?? true {  // vary the vibrato from one bow to the next
                 s.sendController(1, withValue: UInt8(Int.random(in: depth, using: &rng)), onChannel: 0)
             }
@@ -153,6 +163,7 @@ final class Strings: @unchecked Sendable {
         case "off":
             p.lastOff = o.time
             guard let n = p.sounding[o.pitch] else { return }
+            p.sounding[o.pitch]!.over = true
             // the engine's gap is 1/19 of what it played (0.05 of the written length)
             let hold = (style.fillGap ? min((o.time - n.start) / 19, 0.25) : 0) + style.overlapS
             let stop = {

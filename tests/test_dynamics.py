@@ -65,5 +65,14 @@ def test_phrase_rises_to_its_highest_note_and_layers_follow_the_level(score):
     assert dynamics.expression(0.0, 127) == 80 and dynamics.expression(0.0, 102) == 100  # a softer layer: more expression
 
 
+def test_layer_holds_for_a_phrase(score):
+    """Joined notes stop a little early (LEGATO), so the part is briefly silent before each one: that gap is not a
+    rest, and the sample layer stays the phrase's (picked again at each note, CC11 jumped on the old note's tail)."""
+    take = synth.make_take(score, 1, 4, rubato=0.0, jitter_ms=0.0)
+    res = simulate.run(score, take.events, 1, 4, follow=False)
+    cello = sorted((o for o in res.outs if o.kind == "on" and o.part == "Violoncello"), key=lambda o: o.time)
+    assert cello[0].beat < cello[1].beat and cello[1].velocity == cello[0].velocity  # bar 1's E into bar 2's F
+
+
 def test_accompanist_without_dynamics_plays_one_velocity(score):
     assert {n.velocity for n in Accompanist(score, 1, 16, dynamics=False).notes} == {80}

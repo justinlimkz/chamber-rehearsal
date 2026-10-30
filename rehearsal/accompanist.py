@@ -27,6 +27,7 @@ Stopping and starting again:
 from __future__ import annotations
 
 import bisect
+import math
 from dataclasses import dataclass, field
 
 from . import dynamics
@@ -131,6 +132,9 @@ class Accompanist:
         self.dyn: dict[str, int] = {}  # per part, the expression the dynamics ask for (127 if not set)
         self.expr: dict[str, int] = {}  # per part, the expression last sent: dynamics times fade (127 if not sent)
         self.layer: dict[str, int] = {}  # per part, the velocity of its notes (the sample layer), set as a phrase starts
+        # per part, the onset of its last note and the written end of its phrase so far: a phrase starts after a
+        # written rest (not the gap LEGATO leaves between joined notes) or when the strings go back
+        self.phrase: dict[str, tuple[float, float]] = {}
         self.restart_from = self.piano_onsets[0]  # piano chord a restart is expected at...
         self.restart_back = 0.0  # ...or up to this many beats before it
         self.last_start = self.start_beat  # for "again"
@@ -268,8 +272,11 @@ class Accompanist:
                 break
             velocity = n.velocity
             if self.levels:
-                if not any(m.part == n.part for _, m in self.sounding):  # a phrase starts: its sample layer
+                last, end = self.phrase.get(n.part, (math.inf, -math.inf))
+                if n.onset_beat < last or n.onset_beat - end >= dynamics.EXPRESSION.phrase_gap:  # a phrase starts
                     self.layer[n.part] = dynamics.layer_velocity(dynamics.level_at(self.levels[n.part], n.onset_beat))
+                    end = -math.inf
+                self.phrase[n.part] = (n.onset_beat, max(end, n.onset_beat + n.duration_beat))
                 velocity = self.layer[n.part]
                 self._dynamics(t_on, n.part, n.onset_beat, out)
             out.append(Out(t_on, "on", n.part, n.pitch, velocity, n.onset_beat))

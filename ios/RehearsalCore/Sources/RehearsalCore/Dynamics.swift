@@ -15,6 +15,8 @@ func dynamicsVelocity(_ db: Double) -> Int {
 /// and loud layers.
 let LAYERS: [(top: Double, velocity: Int)] = [(-5.0, 79), (0.0, 102), (.infinity, 127)]
 
+let PHRASE_GAP = 0.5  // a rest this long (beats) ends a phrase (dynamics.Expression.phrase_gap)
+
 func layerVelocity(_ db: Double) -> Int { LAYERS.first { db <= $0.top }!.velocity }
 
 /// CC11 that brings notes of `noteVelocity` to the level `db` (dynamics.expression).

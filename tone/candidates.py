@@ -80,6 +80,21 @@ CANDIDATES: dict[str, dict] = {
         "app_size": "4.2 MB (no change)",
         "realtime": REALTIME_SAMPLER,
     },
+    "joined": {
+        "font": lambda: APP_FONT,
+        "description": "As `expressive` (round 6's winner), with two fixes for the choppy note changes heard in it: a part keeps its sample layer for a whole phrase (it had been picked again at every note, since the engine's gap between joined notes looked like a rest, and CC11 jumped to make up the difference, on the old note's tail too), and a held-over note ends 20 ms after the part's next note starts (it had sounded on for up to 0.3 s, a semitone clash and then a dip).",
+        "licence": "MIT (as current)",
+        "app_size": "4.2 MB (no change)",
+        "realtime": REALTIME_SAMPLER,
+    },
+    "joined-0": {
+        "font": lambda: APP_FONT,
+        "style": {"handover": 0},
+        "description": "As `joined`, with the old note ending exactly as the new one starts (its release still overlaps the legato fade-in).",
+        "licence": "MIT (as current)",
+        "app_size": "4.2 MB (no change)",
+        "realtime": REALTIME_SAMPLER,
+    },
     "expressive-subtle": {
         "font": lambda: APP_FONT,
         "variant": "subtle",
