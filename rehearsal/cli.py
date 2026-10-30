@@ -208,6 +208,10 @@ def cmd_bundle(args) -> int:
         sessions = [Path("build/sessions") / f"{s}.mid" for s in args.sessions]
         for path in bundle.fixtures(score, Path(args.fixtures), takes, sessions):
             print(f"wrote {path}")
+    if args.import_fixtures:  # the test pieces and the scores, as the iPad's MusicXML import must read them
+        sources = sorted(Path("tests/musicxml").glob("*.musicxml")) + sorted(Path("scores").glob("*.mxl"))
+        for path in bundle.import_fixtures(sources, Path(args.import_fixtures)):
+            print(f"wrote {path}")
     return 0
 
 
@@ -290,6 +294,7 @@ def main(argv=None) -> int:
     bu.add_argument("--fixtures", help="also write the engine's golden test cases here (from takes/ and --sessions)")
     bu.add_argument("--sessions", nargs="*", default=["20261028-150330", "20261028-150451", "20261029-172728"],
                     help="saved live sessions (build/sessions/<name>.mid) to include as fixtures")
+    bu.add_argument("--import-fixtures", help="also write what the iPad's MusicXML import must make, here")
     bu.set_defaults(fn=cmd_bundle)
 
     args = p.parse_args(argv)

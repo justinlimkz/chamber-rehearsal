@@ -3,7 +3,8 @@
 <plist version="1.0">
 <dict>
 	<!-- A piece made on the Mac (`rehearsal bundle --out Name.rehearsal`): a folder the iPad treats as one file,
-	     so AirDrop and Files' "Open in" bring it to the app's Add sheet. The rest of Info.plist is generated. -->
+	     so AirDrop and Files' "Open in" bring it to the app's Add sheet. MusicXML scores (.musicxml, and .mxl
+	     compressed) open there too: the app makes the piece itself. The rest of Info.plist is generated. -->
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
@@ -25,6 +26,51 @@
 			</dict>
 		</dict>
 	</array>
+	<key>UTImportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.musicxml.musicxml</string>
+			<key>UTTypeDescription</key>
+			<string>MusicXML score</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.xml</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>musicxml</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.recordare.musicxml+xml</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>org.musicxml.compressed</string>
+			<key>UTTypeDescription</key>
+			<string>MusicXML score (compressed)</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.zip-archive</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>mxl</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/vnd.recordare.musicxml</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -37,6 +83,19 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>kz.justinlim.rehearsal.piece</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>MusicXML score</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.musicxml.musicxml</string>
+				<string>org.musicxml.compressed</string>
 			</array>
 		</dict>
 	</array>

@@ -27,6 +27,33 @@ from .voice import Cue
 PARTS = (*STRING_PARTS, "Piano")
 
 
+def score_data(score: Score) -> dict:
+    """What the engine reads from the score (the iPad makes the same from a MusicXML file itself, checked by
+    `import_fixtures`): the bars, the notes of the parts it has, and the string parts' loudness curves."""
+    have = [name for name in PARTS if any(p.lower().startswith(name.lower()) for p in score.part_names)]
+    strings = [name for name in have if name in STRING_PARTS]
+    return {
+        "title": score.title,
+        "composer": score.composer,
+        "barStarts": [[beat, bar] for beat, bar in score.bar_starts()],
+        "parts": {name: [[n.onset_beat, n.duration_beat, n.pitch] for n in score.notes(name)] for name in have},
+        "dynamics": {name: [list(p) for p in pts] for name, pts in dynamics.curves(score, strings).items()},
+    }
+
+
+def import_fixtures(paths: list[Path], out: Path) -> list[Path]:
+    """For each MusicXML file, `<out>/<stem>.json`: the source's path and `score_data`, for the iPad's own
+    MusicXML import to match (`swift run --package-path ios/RehearsalCore import-check`)."""
+    out.mkdir(parents=True, exist_ok=True)
+    written = []
+    for path in paths:
+        root = Path(__file__).resolve().parent.parent
+        dest = out / (Path(path).name.split(".")[0] + ".json")
+        dest.write_text(json.dumps({"source": str(Path(path).resolve().relative_to(root)), **score_data(Score(path))}))
+        written.append(dest)
+    return written
+
+
 def export(score: Score, out: Path) -> Path:
     out.mkdir(parents=True, exist_ok=True)
     lead_path = annotate.annotation_path(score.path)
@@ -34,13 +61,9 @@ def export(score: Score, out: Path) -> Path:
     meta_path = score.path.with_suffix(".piece.yaml")
     meta = yaml.safe_load(meta_path.read_text()) if meta_path.exists() else {}
     data = {
-        "title": score.title,
-        "composer": score.composer,
+        **score_data(score),
         "work": meta.get("work", score.title),  # for the library: works, with their movements under them
         "movement": meta.get("movement", ""),
-        "barStarts": [[beat, bar] for beat, bar in score.bar_starts()],
-        "parts": {name: [[n.onset_beat, n.duration_beat, n.pitch] for n in score.notes(name)] for name in PARTS},
-        "dynamics": {name: [list(p) for p in pts] for name, pts in dynamics.curves(score, STRING_PARTS).items()},
         "leadership": [{"firstBar": p.first_bar, "lastBar": p.last_bar, "lead": p.lead, "coupling": p.coupling}
                        for p in leadership] if leadership else None,
     }

@@ -2,8 +2,10 @@ import Foundation
 import RehearsalCore
 import UniformTypeIdentifiers
 
-// The pieces the app can rehearse: folders made on the Mac by `rehearsal bundle` (score.json for the strings,
-// score.musicxml for the page to engrave; older bundles have the Mac's engraving.svg and anchors.json instead). The ones that come with the app live in its bundle; added ones are copied into
+// The pieces the app can rehearse: folders holding score.json (the strings' notes and dynamics) and
+// score.musicxml (the page to engrave), made here from a MusicXML file (`fromMusicXML`) or on the Mac by
+// `rehearsal bundle` (older bundles have the Mac's engraving.svg and anchors.json instead). The ones that come with
+// the app live in its bundle; added ones are copied into
 // Documents/Pieces (Files › On My iPad › Rehearsal › Pieces). The library lists works with their movements
 // under them, from each bundle's composer, work and movement.
 
@@ -16,9 +18,37 @@ struct Piece: Identifiable, Hashable, Sendable {
     let bars: Int
     let strings: [String]  // the parts the strings play, in score order
     let builtIn: Bool
+    var notice: String? = nil  // shown when adding it, e.g. parts the app won't play
 
     static let files = ["score.json", "score.musicxml", "engraving.svg", "anchors.json"]  // the ones there are
     static let type = UTType(exportedAs: "kz.justinlim.rehearsal.piece")  // a bundle folder named *.rehearsal
+    static let musicXML = [UTType(importedAs: "org.musicxml.musicxml"), UTType(importedAs: "org.musicxml.compressed")]
+
+    /// A piece made from a MusicXML score (.musicxml, .mxl, or .xml), in a new folder under `dir`.
+    static func fromMusicXML(_ url: URL, in dir: URL) throws -> Piece {
+        let data = try Data(contentsOf: url)
+        let imp = try ScoreImport(data: data)
+        let title = [imp.score.composer.split(separator: " ").last.map(String.init) ?? "", imp.score.work ?? "", imp.score.movement ?? ""]
+            .joined(separator: " ")
+        let slug = slugged(title.trimmingCharacters(in: .whitespaces).isEmpty ? url.deletingPathExtension().lastPathComponent : title)
+        let folder = dir.appendingPathComponent(slug, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: imp.json()).write(to: folder.appendingPathComponent("score.json"))
+        let xml = String(decoding: try MusicXMLScore.text(data), as: UTF8.self)
+        try Data(imp.musicxml(xml).utf8).write(to: folder.appendingPathComponent("score.musicxml"))
+        var piece = try Piece(url: folder, builtIn: false)
+        if !imp.ignored.isEmpty {
+            piece.notice = "Not played (the app plays violin, viola and cello): " + ListFormatter.localizedString(byJoining: imp.ignored) + "."
+        }
+        return piece
+    }
+
+    /// "Schumann Piano Quartet, Op. 47" -> "schumann-piano-quartet-op-47"
+    static func slugged(_ s: String) -> String {
+        let words = s.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: nil).lowercased()
+            .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        return words.isEmpty ? "piece" : words.joined(separator: "-")
+    }
 
     /// Read a bundle folder's description (not its notes: the session loads those).
     init(url: URL, builtIn: Bool) throws {
@@ -52,7 +82,7 @@ enum PieceError: LocalizedError {
     case missing(String)
     var errorDescription: String? {
         switch self {
-        case .missing(let f): "This isn't a piece made by the Mac's “rehearsal bundle”: it has no \(f)."
+        case .missing(let f): "This isn't a piece the app can open: it has no \(f). Add a MusicXML score (.musicxml or .mxl), or a piece made by the Mac's “rehearsal bundle”."
         }
     }
 }

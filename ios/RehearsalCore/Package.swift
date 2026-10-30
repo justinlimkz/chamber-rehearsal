@@ -7,9 +7,11 @@ let package = Package(
     products: [
         .library(name: "RehearsalCore", targets: ["RehearsalCore"]),
         .executable(name: "fixture-check", targets: ["fixture-check"]),
+        .executable(name: "import-check", targets: ["import-check"]),
     ],
     targets: [
         .target(name: "RehearsalCore"),
         .executableTarget(name: "fixture-check", dependencies: ["RehearsalCore"]),
+        .executableTarget(name: "import-check", dependencies: ["RehearsalCore"]),
     ]
 )

@@ -34,7 +34,7 @@ def test_opening_f_diminuendo_to_p(score):
 
 def test_hairpins_without_a_target_stay_within_a_step_of_the_marking(score):
     for name in STRING_PARTS:
-        pts = dynamics.curve(score.part(name))
+        pts = dynamics.curve(score.read(name))
         assert max(v for _, v in pts) <= dynamics.LEVELS_DB["ff"]
         assert min(v for _, v in pts) >= dynamics.LEVELS_DB["pp"] - dynamics.STEP_DB
 

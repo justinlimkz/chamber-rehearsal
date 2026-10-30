@@ -26,11 +26,11 @@ from __future__ import annotations
 
 import bisect
 import math
-import warnings
 from dataclasses import dataclass
 
 import numpy as np
-import partitura as pt
+
+from . import musicxml
 
 LEVELS_DB = {"pp": -12.0, "p": -7.0, "mp": -3.5, "mf": 0.0, "f": 4.0, "ff": 7.0}
 DEFAULT_DB = 0.0  # before the part's first marking: mf
@@ -75,22 +75,12 @@ def expression(db: float, note_velocity: int) -> int:
     return velocity(db - 40 * math.log10(note_velocity / TOP_VELOCITY))
 
 
-def curve(part, step_db: float = STEP_DB, ease: int = EASE) -> list[tuple[float, float]]:
+def curve(part: musicxml.Part, step_db: float = STEP_DB, ease: int = EASE) -> list[tuple[float, float]]:
     """Breakpoints (beat, dB) of the part's loudness, linear between them; a step is two points at one beat.
     `ease` > 0: each ramp follows an S-curve (smoothstep) drawn with that many pieces, so a hairpin starts and
     ends gently and a crescendo turning into a diminuendo rounds off instead of peaking."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        q = part.quarter_map
-        marks = sorted((float(q(d.start.t)), LEVELS_DB[d.text.strip().lower()])
-                       for d in part.iter_all(pt.score.ConstantLoudnessDirection)
-                       if (d.text or "").strip().lower() in LEVELS_DB)
-        pins = []
-        for cls, sign in ((pt.score.IncreasingLoudnessDirection, 1), (pt.score.DecreasingLoudnessDirection, -1)):
-            for d in part.iter_all(cls):
-                s = float(q(d.start.t))
-                e = float(q(d.end.t)) if d.end is not None else s
-                pins.append((s, e if e > s else s + UNSPANNED_BEATS, sign))
+    marks = sorted((b, LEVELS_DB[text]) for b, text in part.marks if text in LEVELS_DB)
+    pins = [(s, e if e is not None and e > s else s + UNSPANNED_BEATS, sign) for s, e, sign in part.hairpins]
     pins.sort()
     # Marks first at equal times: a hairpin starting with a dynamic starts from it.
     events = sorted([(b, 0, db, None) for b, db in marks] + [(s, 1, e, sign) for s, e, sign in pins],
@@ -208,6 +198,6 @@ def curves(score, names, step_db: float = STEP_DB, ease: int = EASE,
     for name in names:
         key = (name, step_db, ease, ex)
         if key not in cache:
-            pts = curve(score.part(name), step_db, ease)
+            pts = curve(score.read(name), step_db, ease)
             cache[key] = shaped(pts, score.notes(name), ex) if ex else pts[1:]
     return {name: cache[name, step_db, ease, ex] for name in names}

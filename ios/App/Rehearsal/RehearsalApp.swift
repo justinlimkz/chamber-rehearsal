@@ -18,6 +18,13 @@ struct RehearsalApp: App {
     @State private var problem: String?
     @Environment(\.scenePhase) private var phase
 
+    init() {  // "Pieces" set like the works' titles, in the serif
+        let d = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle)
+        if let serif = d.withDesign(.serif) {
+            UINavigationBar.appearance().largeTitleTextAttributes = [.font: UIFont(descriptor: serif, size: 0)]
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             switch rig {
@@ -38,6 +45,10 @@ struct RehearsalApp: App {
                     if Rig.silent, let arg = ProcessInfo.processInfo.environment["REHEARSAL_OPEN"] {
                         let parts = arg.split(separator: "@").map(String.init)
                         if let p = library.piece(parts[0]) { open(p, from: parts.count > 1 ? Int(parts[1]) : nil, rig: rig) }
+                    }
+                    // and REHEARSAL_ADD=<path to a score or piece> opens the Add sheet for it
+                    if Rig.silent, let path = ProcessInfo.processInfo.environment["REHEARSAL_ADD"] {
+                        adding = LibraryView.preview(URL(fileURLWithPath: path), problem: &problem)
                     }
                 }
                 .onChange(of: phase) { _, p in

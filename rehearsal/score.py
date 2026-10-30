@@ -1,4 +1,5 @@
-"""Score model: thin layer over partitura. Notes, onsets in beats, bar numbers."""
+"""Score model: notes, onsets in beats, bar numbers. Notes, bars and dynamics are read by musicxml.py (as the iPad
+reads them); partitura's reading is kept for the leadership guess (annotate.py) and the follower's piano part."""
 from __future__ import annotations
 
 import warnings
@@ -7,6 +8,8 @@ from pathlib import Path
 
 import numpy as np
 import partitura as pt
+
+from . import musicxml
 
 SCORE_DIR = Path(__file__).resolve().parent.parent / "scores"
 DEFAULT_SCORE = SCORE_DIR / "piano-quartet-op47-3rd-mov-robert-schumann.mxl"
@@ -42,6 +45,14 @@ class Score:
             # Unfolded parts repeat bar numbers, so `bar` below is the written bar number.
             self.written = list(loaded.parts)
             self.parts = [pt.score.unfold_part_maximal(p) for p in self.written] if unfold else self.written
+        self.read_parts = musicxml.load(self.path, unfold).parts
+
+    def read(self, name: str) -> musicxml.Part:
+        """musicxml.py's reading of a part: its notes, bars and loudness markings."""
+        for p in self.read_parts:
+            if p.name.lower().startswith(name.lower()):
+                return p
+        raise KeyError(f"no part {name!r}; have {self.part_names}")
 
     @property
     def part_names(self) -> list[str]:
@@ -59,27 +70,13 @@ class Score:
             return self._notes(name)
 
     def _notes(self, name: str) -> list[ScoreNote]:
-        part = self.part(name)
-        q = part.quarter_map
-        bar_of = part.measure_number_map
-        bar_span = part.measure_map  # time -> (bar start, bar end) in divs; correct in unfolded repeats
+        part = self.read(name)
         res = []
-        for n in part.notes_tied:
-            start = n.start.t
-            bar_start = bar_span(start)[0]
-            onset = float(q(start))
-            res.append(
-                ScoreNote(
-                    part=part.part_name,
-                    bar=int(bar_of(start)),
-                    beat_in_bar=onset - float(q(bar_start)) + 1,
-                    onset_beat=onset,
-                    duration_beat=float(q(start + n.duration_tied)) - onset,
-                    pitch=int(n.midi_pitch),
-                )
-            )
-        res.sort(key=lambda s: (s.onset_beat, s.pitch))
-        return res
+        for n in part.notes:
+            bar, beat = self.bar_at(n.onset, name)
+            res.append(ScoreNote(part=part.name, bar=bar, beat_in_bar=beat, onset_beat=n.onset,
+                                 duration_beat=n.duration, pitch=n.pitch))
+        return res  # already in (onset, pitch) order
 
     def bars(self, name: str, first: int, last: int) -> dict[int, list[ScoreNote]]:
         by_bar: dict[int, list[ScoreNote]] = {b: [] for b in range(first, last + 1)}
@@ -93,11 +90,7 @@ class Score:
 
     def bar_starts(self, name: str = "Piano") -> list[tuple[float, int]]:
         """(quarter-note position, written bar number) for every bar of the unfolded part, in order."""
-        part = self.part(name)
-        q = part.quarter_map
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            return [(float(q(m.start.t)), int(m.number)) for m in part.iter_all(pt.score.Measure)]
+        return list(self.read(name).bars)
 
     def bar_at(self, beat: float, name: str = "Piano") -> tuple[int, float]:
         """Map an absolute (unfolded) beat position to (written bar, 1-based beat in bar)."""
