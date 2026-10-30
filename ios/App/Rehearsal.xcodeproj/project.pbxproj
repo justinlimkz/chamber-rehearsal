@@ -8,7 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A10000000000000000000101 /* RehearsalCore in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000401 /* RehearsalCore */; };
-		A10000000000000000000102 /* ipad.html in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* ipad.html */; };
+		A10000000000000000000102 /* score.html in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* score.html */; };
 		A10000000000000000000103 /* schumann-op47-iii in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* schumann-op47-iii */; };
 		A10000000000000000000104 /* strings.sf2 in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000204 /* strings.sf2 */; };
 		A10000000000000000000105 /* verovio-toolkit-wasm.js in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000205 /* verovio-toolkit-wasm.js */; };
@@ -16,7 +16,7 @@
 
 /* Begin PBXFileReference section */
 		A10000000000000000000201 /* Rehearsal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rehearsal.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000000000000000000202 /* ipad.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = ipad.html; path = ../../rehearsal/web/ipad.html; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000202 /* score.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = score.html; path = ../Web/score.html; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000203 /* schumann-op47-iii */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "schumann-op47-iii"; path = "../Bundles/schumann-op47-iii"; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000204 /* strings.sf2 */ = {isa = PBXFileReference; lastKnownFileType = file; name = strings.sf2; path = ../Sounds/strings.sf2; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000205 /* verovio-toolkit-wasm.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "verovio-toolkit-wasm.js"; path = "../Web/verovio-toolkit-wasm.js"; sourceTree = SOURCE_ROOT; };
@@ -54,7 +54,7 @@
 		A10000000000000000000602 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000202 /* ipad.html */,
+				A10000000000000000000202 /* score.html */,
 				A10000000000000000000203 /* schumann-op47-iii */,
 				A10000000000000000000204 /* strings.sf2 */,
 				A10000000000000000000205 /* verovio-toolkit-wasm.js */,
@@ -133,7 +133,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000102 /* ipad.html in Resources */,
+				A10000000000000000000102 /* score.html in Resources */,
 				A10000000000000000000103 /* schumann-op47-iii in Resources */,
 				A10000000000000000000104 /* strings.sf2 in Resources */,
 				A10000000000000000000105 /* verovio-toolkit-wasm.js in Resources */,

@@ -1,13 +1,10 @@
-"""Score model: notes, onsets in beats, bar numbers. Notes, bars and dynamics are read by musicxml.py (as the iPad
-reads them); partitura's reading is kept for the leadership guess (annotate.py) and the follower's piano part."""
+"""Score model: notes, onsets in beats, bar numbers, as musicxml.py reads them (the same way the iPad does)."""
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import partitura as pt
 
 from . import musicxml
 
@@ -35,17 +32,12 @@ class ScoreNote:
 
 class Score:
     def __init__(self, path: Path = DEFAULT_SCORE, unfold: bool = True):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")  # partitura chatters about unparsed text directions and slurs
-            loaded = pt.load_musicxml(str(path))
-            self.path = Path(path)
-            self.title = loaded.title or self.path.stem
-            self.composer = loaded.composer or ""
-            # Repeats (bars 64-70) are not unfolded by default; unfold for score following.
-            # Unfolded parts repeat bar numbers, so `bar` below is the written bar number.
-            self.written = list(loaded.parts)
-            self.parts = [pt.score.unfold_part_maximal(p) for p in self.written] if unfold else self.written
-        self.read_parts = musicxml.load(self.path, unfold).parts
+        """`unfold`: repeats played out (the bars in playing order, so a bar number can come twice)."""
+        self.path = Path(path)
+        loaded = musicxml.load(self.path, unfold)
+        self.title = loaded.title or self.path.stem
+        self.composer = loaded.composer
+        self.read_parts = loaded.parts
 
     def read(self, name: str) -> musicxml.Part:
         """musicxml.py's reading of a part: its notes, bars and loudness markings."""
@@ -56,20 +48,9 @@ class Score:
 
     @property
     def part_names(self) -> list[str]:
-        return [p.part_name for p in self.parts]
-
-    def part(self, name: str):
-        for p in self.parts:
-            if p.part_name.lower().startswith(name.lower()):
-                return p
-        raise KeyError(f"no part {name!r}; have {self.part_names}")
+        return [p.name for p in self.read_parts]
 
     def notes(self, name: str) -> list[ScoreNote]:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            return self._notes(name)
-
-    def _notes(self, name: str) -> list[ScoreNote]:
         part = self.read(name)
         res = []
         for n in part.notes:
@@ -85,9 +66,6 @@ class Score:
                 by_bar[n.bar].append(n)
         return by_bar
 
-    def note_array(self, name: str) -> np.ndarray:
-        return pt.utils.music.note_array_from_part(self.part(name))
-
     def bar_starts(self, name: str = "Piano") -> list[tuple[float, int]]:
         """(quarter-note position, written bar number) for every bar of the unfolded part, in order."""
         return list(self.read(name).bars)
@@ -97,11 +75,3 @@ class Score:
         starts = self.bar_starts(name)
         i = max(0, int(np.searchsorted([b for b, _ in starts], beat, side="right")) - 1)
         return starts[i][1], beat - starts[i][0] + 1
-
-    def export_part(self, name: str, path: Path) -> Path:
-        """Write one (folded) part as its own MusicXML file, e.g. for a follower that wants only the piano."""
-        written = next(p for p in self.written if p.part_name.lower().startswith(name.lower()))
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            pt.save_musicxml(written, str(path))
-        return Path(path)

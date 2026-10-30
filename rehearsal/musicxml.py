@@ -2,11 +2,11 @@
 each part's notes in quarter-note beats with ties joined and repeats played out, its bars in playing order, and the
 loudness markings dynamics.py reads (dynamics, wedges, "cresc."/"dim." in words, spanned by dashes or not).
 
-partitura reads the notes and directions too, but drops some ties (2026-10-30: a tie into the bar a repeat starts
-at, and two more in the Schumann's repeated section), so the engine was waiting for notes nobody plays. The two
-readers are kept the same by `rehearsal bundle --import-fixtures` and `import-check`.
+It replaced partitura, which dropped some ties (2026-10-30: a tie into the bar a repeat starts at, and two more
+in the Schumann's repeated section), so the engine was waiting for notes nobody plays. The two readers (this and
+the iPad's) are kept the same by `rehearsal bundle --import-fixtures` and `import-check`.
 
-As partitura: a direction sits where it is written among the notes (its <offset> is ignored); a grace note starts
+As partitura did: a direction sits where it is written among the notes (its <offset> is ignored); a grace note starts
 with the note it ornaments and lasts nothing; a short first bar is a pickup, so the first full bar starts at beat 0;
 every repeat is taken, with first and second endings (D.C. and D.S. are not followed).
 """

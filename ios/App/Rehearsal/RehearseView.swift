@@ -89,12 +89,10 @@ struct RehearseView: View {
                 .buttonStyle(.glass)
                 .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
                 .disabled(live.state == "finished")
-                if session.piece.engravable {
-                    Button { styling = true } label: { Label("Score", systemImage: "music.note.list") }
-                        .buttonStyle(.glass)
-                        .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
-                        .popover(isPresented: $styling) { ScorePanel(parts: session.score.partNames, look: $look) }
-                }
+                Button { styling = true } label: { Label("Score", systemImage: "music.note.list") }
+                    .buttonStyle(.glass)
+                    .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                    .popover(isPresented: $styling) { ScorePanel(parts: session.score.partNames, look: $look) }
                 Button { mixing = true } label: { Image(systemName: "slider.horizontal.3").accessibilityLabel("Strings and tempo") }
                     .buttonStyle(.glass)
                     .popover(isPresented: $mixing) { StringsPanel(session: session, live: live) }

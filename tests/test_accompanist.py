@@ -126,43 +126,6 @@ def test_session_analysis_splits_passes(score, tmp_path):
     assert np.mean(np.abs(a) <= 0.06) >= 0.9
 
 
-def test_strings_keep_their_tempo_where_they_lead():
-    """Pianist steady at 80 bpm, strings' own tempo 63: piano-led, the clock goes to 80; strings-led
-    (coupling 0.3), it settles in between and keeps more of its own."""
-    from rehearsal.annotate import Passage
-
-    def final_bpm(coupling):
-        score = Score()
-        lead = [Passage(1, 16, "strings" if coupling < 0.7 else "piano", coupling, "")]
-        acc = Accompanist(score, 1, 16, leadership=lead)
-        clock = acc.clock
-        clock.anchor(0.0, 0.0)
-        prev = None
-        for i in range(40):
-            beat = 12.0 + 0.5 * i
-            t = 0.375 * i  # 80 bpm
-            if prev is None:
-                clock.anchor(t, beat)
-            else:
-                acc.last_beat = prev
-                acc._correct(t, beat)
-            prev = beat
-        return 60 / clock.spb
-
-    assert final_bpm(0.7) == pytest.approx(80, abs=1)
-    assert 66 < final_bpm(0.3) < 76  # 74 at the time of writing; 73 at 0.15, 75 at 0.4
-    assert final_bpm(0.15) < final_bpm(0.3)
-
-
-def test_piano_led_annotation_is_the_same_as_none(score):
-    from rehearsal.annotate import Passage
-
-    take = synth.make_take(score, 1, 16, seed=1, rubato=0.15, jitter_ms=20)
-    base = simulate.run(score, take.events, 1, 16)
-    res = simulate.run(score, take.events, 1, 16, leadership=[Passage(1, 132, "piano", 0.7, "")])
-    assert [(round(o.time, 6), o.kind, o.pitch) for o in res.outs] == [(round(o.time, 6), o.kind, o.pitch) for o in base.outs]
-
-
 def test_pause_ignores_the_piano_until_resume(score):
     take = synth.make_take(score, 1, 16, seed=0)
     acc = Accompanist(score, 1, 16)

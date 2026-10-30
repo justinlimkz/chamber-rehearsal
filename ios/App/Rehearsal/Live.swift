@@ -81,7 +81,7 @@ struct PassSummary: Equatable {
     var line: String { ([bars, tempo] + [togetherText].compactMap { $0 }).joined(separator: " · ") }
 }
 
-/// The page's colours (ipad.html), so the strip and the score read as one.
+/// The page's colours (score.html), so the strip and the score read as one.
 enum Paper {
     static let color = Color(red: 0xFC / 255, green: 0xFB / 255, blue: 0xF8 / 255)
     static let ink = Color(red: 0x1B / 255, green: 0x1F / 255, blue: 0x24 / 255)

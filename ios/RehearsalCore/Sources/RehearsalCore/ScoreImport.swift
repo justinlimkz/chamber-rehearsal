@@ -56,7 +56,6 @@ public struct ScoreImport {
             "barStarts": parts["Piano"]!.bars.map { [$0.beat, $0.number] as [Any] },
             "parts": parts.mapValues { $0.notes.map { [$0.onsetBeat, $0.durationBeat, $0.pitch] as [Any] } },
             "dynamics": dyn,
-            "leadership": NSNull(),
         ]
     }
 

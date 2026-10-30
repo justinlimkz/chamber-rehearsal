@@ -1,7 +1,8 @@
 """Offline run of the accompanist on a recorded take: what the strings would have played, and how in time.
 
-The take is replayed in virtual time, 1 ms per step, feeding piano onsets and the follower's estimates
-to the same `Accompanist` the live path uses. Timing is measured against the reference alignment.
+The take is replayed in virtual time, 1 ms per step, feeding piano onsets (and voice cues) to the
+`Accompanist`, as the iPad app does live (ios/RehearsalCore's Simulator is the same in Swift). Timing is
+measured against the reference alignment.
 
 Caveat: the take was recorded without strings, so where the strings lead (bars 2-3, the cello's
 entries) the pianist could not have followed them. Asynchrony there reflects that, not the scheduler.
@@ -16,10 +17,8 @@ import numpy as np
 
 from . import midi_io, reference
 from .accompanist import Accompanist, Out
-from .annotate import Passage
-from .follower import MatchmakerFollower
 from .score import Score
-from .sound import CHANNELS, PROGRAMS
+from .midi_io import CHANNELS, PROGRAMS
 from .tempo import BeatClock
 from .voice import Cue
 
@@ -34,24 +33,12 @@ class SimResult:
 
 
 def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_bar: int = 16,
-        clock: BeatClock | None = None, workdir: Path = Path("build"),
-        cues: list[tuple[float, Cue]] = (), leadership: list[Passage] | None = None,
-        follow: bool = True) -> SimResult:
-    """`follow=False` leaves out the follower (Matchmaker): the accompanist's own chord matching only."""
+        clock: BeatClock | None = None, cues: list[tuple[float, Cue]] = ()) -> SimResult:
     inputs = [(e.time, 0, e.note) for e in events if e.is_onset]
-    if follow:
-        workdir.mkdir(exist_ok=True)
-        take_path = workdir / "sim_take.mid"
-        midi_io.write_take(events, take_path)
-        f = MatchmakerFollower(score, take_path, workdir=workdir)
-        for _ in f.positions():
-            pass
-        path = f.mm.score_follower.alignment_path
-        inputs += [(float(t), 1, float(b)) for b, t in zip(path[0], path[1])]
-    inputs += [(t, 2, c) for t, c in cues]
+    inputs += [(t, 1, c) for t, c in cues]
     inputs.sort(key=lambda x: x[:2])
 
-    acc = Accompanist(score, first_bar, last_bar, clock=clock or BeatClock(spb=60 / 63), leadership=leadership)
+    acc = Accompanist(score, first_bar, last_bar, clock=clock or BeatClock(spb=60 / 63))
     outs: list[Out] = []
     i, now, end = 0, 0.0, max(t for t, _, _ in inputs) + 5.0
     while now < end and not acc.finished:
@@ -59,8 +46,6 @@ def run(score: Score, events: list[midi_io.MidiEvent], first_bar: int = 1, last_
             t, kind, x = inputs[i]
             if kind == 0:
                 acc.on_piano_onset(t, int(x))
-            elif kind == 1:
-                acc.on_follower(t, x)
             else:
                 acc.on_cue(t, x)
             i += 1

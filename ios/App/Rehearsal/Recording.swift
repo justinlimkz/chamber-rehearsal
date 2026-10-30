@@ -1,9 +1,9 @@
 import Foundation
 import RehearsalCore
 
-// Each session saved for listening back (live.py's session files): the piano, the strings and the
-// notices as markers, in one MIDI file laid out as `simulate.write_midi` lays it out (a channel per part,
-// wall-clock time at 120 bpm), so the Mac's `session.py` reads it as it reads the Mac's own.
+// Each session saved for listening back: the piano, the strings and the notices as markers, in one MIDI
+// file laid out as `simulate.write_midi` lays it out (a channel per part, wall-clock time at 120 bpm), so the
+// Mac's `rehearsal session` can analyse it.
 // Saved in the app's Documents/Sessions folder, which the Files app shows (On My iPad › Rehearsal), with a
 // small JSON file alongside (`<name>.json`: the piece and its passes) for the app's recordings list.
 

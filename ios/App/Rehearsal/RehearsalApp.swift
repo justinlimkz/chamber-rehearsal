@@ -1,9 +1,8 @@
 import RehearsalCore
 import SwiftUI
 
-// Chamber rehearsal on the iPad: plug the piano in, pick a piece, play, and the string trio follows
-// (rehearsal/live.py and the iPad score view, without the Mac). Two places: the library, and the rehearse
-// screen with the score; everything else is a sheet or a popover over them.
+// Chamber rehearsal on the iPad: plug the piano in, pick a piece, play, and the string trio follows.
+// Two places: the library, and the rehearse screen with the score; everything else is a sheet or a popover over them.
 
 @main
 struct RehearsalApp: App {

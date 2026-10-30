@@ -13,7 +13,8 @@ import struct
 import sys
 from pathlib import Path
 
-from rehearsal.sound import DEFAULT_SOUNDFONT
+# MuseScore Studio's bundled SoundFont (MIT licence). Installed with `brew install --cask musescore`.
+DEFAULT_SOUNDFONT = Path("/Applications/MuseScore 4.app/Contents/Resources/sound/MS Basic.sf3")
 
 DEFAULT_OUT = Path("ios/Sounds/strings.sf2")
 KEEP = {(0, 40), (0, 41), (0, 42)}  # (bank, program): Violin, Viola, Cello

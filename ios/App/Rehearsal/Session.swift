@@ -1,7 +1,7 @@
 import Foundation
 import RehearsalCore
 
-// Rehearsing one piece (rehearsal/live.py, without the follower): piano notes in from the keyboard, the
+// Rehearsing one piece: piano notes in from the keyboard, the
 // accompanist deciding what the strings play, the strings out through the samplers, voice cues from the
 // microphone, and everything recorded to a MIDI file. The keyboard, samplers and microphone belong to the
 // Rig and are lent to the session open on screen.
@@ -157,8 +157,7 @@ final class Session: @unchecked Sendable {
         furthest = max(furthest ?? e.beat, e.beat)
     }
 
-    /// What the score page (`ipad.html`) and the strip show, as JSON: the fields the Mac's server sends,
-    /// plus the last pass.
+    /// What the score page (`score.html`) and the strip show, as JSON, with the last pass.
     func state() -> [String: Any] {
         let now = self.now()
         return lock.withLock {

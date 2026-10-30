@@ -137,7 +137,7 @@ struct PreviewWeb: UIViewRepresentable {
                 document.head.appendChild(sc);
               });
             }
-            // As ipad.html's partsOnly, without the line breaks: only the chosen parts
+            // As score.html's partsOnly, without the line breaks: only the chosen parts
             function partsOnly(xml, parts) {
               const doc = new DOMParser().parseFromString(xml, "application/xml"), keep = new Set();
               for (const sp of [...doc.querySelectorAll("part-list > score-part")]) {

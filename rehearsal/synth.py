@@ -1,7 +1,7 @@
-"""Synthetic piano takes from the score, for testing the follower without playing.
+"""Synthetic piano takes from the score, for testing the accompanist without playing.
 
 A take has a known ground truth: for each performed onset, the score beat it came from. That lets us
-measure follower accuracy offline, including with deliberate wrong, missing and extra notes.
+measure the accompanist offline, including with deliberate wrong, missing and extra notes.
 """
 from __future__ import annotations
 

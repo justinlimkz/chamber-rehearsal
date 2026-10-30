@@ -7,7 +7,7 @@ import Speech
 // "continue"/"come back". Apple's on-device speech recognition, listened to only while the strings are
 // waiting, so the piano and the strings don't trigger it.
 //
-// Recognition is open dictation (not a grammar, as with Vosk), so the text is searched for the last cue
+// Recognition is open dictation (not a fixed grammar), so the text is searched for the last cue
 // in it. Results arrive word by word; a bar number may still grow ("from bar one" ... "nineteen"), so a
 // bar cue waits for a short pause in the results before it is acted on. "again" and "from the top" go at once.
 

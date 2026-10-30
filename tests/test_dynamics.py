@@ -43,7 +43,7 @@ def test_expression_shapes_the_held_opening(score):
     """Bar 1 is one held chord per part under f > p: the expression moves while it sounds, in small steps,
     instead of the next note starting at a new level. The chord starts a phrase at f: the loud sample layer."""
     take = synth.make_take(score, 1, 4, rubato=0.0, jitter_ms=0.0)
-    res = simulate.run(score, take.events, 1, 4, follow=False)
+    res = simulate.run(score, take.events, 1, 4)
     ons = sorted(o.time for o in res.outs if o.kind == "on" and o.part == "Violin")
     expr = [o.velocity for o in res.outs if o.kind == "expr" and o.part == "Violin" and ons[0] <= o.time < ons[1]]
     assert len(expr) > 10 and max(abs(a - b) for a, b in zip(expr, expr[1:])) <= 2
@@ -69,7 +69,7 @@ def test_layer_holds_for_a_phrase(score):
     """Joined notes stop a little early (LEGATO), so the part is briefly silent before each one: that gap is not a
     rest, and the sample layer stays the phrase's (picked again at each note, CC11 jumped on the old note's tail)."""
     take = synth.make_take(score, 1, 4, rubato=0.0, jitter_ms=0.0)
-    res = simulate.run(score, take.events, 1, 4, follow=False)
+    res = simulate.run(score, take.events, 1, 4)
     cello = sorted((o for o in res.outs if o.kind == "on" and o.part == "Violoncello"), key=lambda o: o.time)
     assert cello[0].beat < cello[1].beat and cello[1].velocity == cello[0].velocity  # bar 1's E into bar 2's F
 

@@ -1,8 +1,8 @@
 import SwiftUI
 
-// Every visit to the rehearse screen is recorded (Recording.swift): piano, strings and cues as MIDI in the
-// Mac's format, with a summary of its passes alongside. This lists them by day, with Share to send one to the
-// Mac (`session` reads it there). Listening back in the app comes later.
+// Every visit to the rehearse screen is recorded (Recording.swift): piano, strings and cues as MIDI, with a
+// summary of its passes alongside. This lists them by day, with Share to send one to the Mac (`rehearsal
+// session` reads it there). Listening back in the app comes later.
 
 struct RecordingItem: Identifiable {
     let url: URL

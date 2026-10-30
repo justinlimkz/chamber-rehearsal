@@ -1,21 +1,12 @@
 """Accompaniment scheduler: plays the string parts ahead of the predicted beats.
 
 Event-driven and clock-agnostic, so the same object runs live (wall clock) and offline (take time):
-feed it piano notes, follower positions and voice cues, and ask `due(now)` for what to play.
+feed it piano notes and voice cues, and ask `due(now)` for what to play.
 
-Where the pianist is comes from two sources:
-- Each piano chord is matched to a chord of the piano part near the beat clock's prediction, by pitch
-  set, preferring the next chord in the score. This keeps the clock steady in bars of repeated
-  identical chords, where the follower runs an eighth ahead, and the distinct bass notes on downbeats
-  pull it back if it slips.
-- The follower corrects gross drift: if it disagrees with the matched chord by more than a beat several
-  chords running, the position jumps to the follower.
-
-Who leads (milestone 5): by default the piano always leads and the clock follows it closely. Given a
-leadership annotation (`annotate.py`), each piano chord is coupled by its passage's setting instead:
-the clock moves `coupling` of the way to the pianist, waits a little more when the pianist is late than
-it hurries when they are early, and where the strings lead it is pulled back towards the strings' own
-tempo (`home_spb`: the starting tempo, then whatever tempo the last piano-led passage ended in).
+Where the pianist is: each piano chord is matched to a chord of the piano part near the beat clock's
+prediction, by pitch set, preferring the next chord in the score. This keeps the clock steady in bars of
+repeated identical chords, and the distinct bass notes on downbeats pull it back if it slips. The piano
+leads: the clock follows it closely.
 
 Stopping and starting again:
 - When the pianist stops, the strings carry on for a beat and a half, then trail off: notes that end
@@ -26,12 +17,10 @@ Stopping and starting again:
 """
 from __future__ import annotations
 
-import bisect
 import math
 from dataclasses import dataclass, field
 
 from . import dynamics
-from .annotate import COUPLING, Passage
 from .score import Score
 from .tempo import BeatClock
 from .voice import Cue
@@ -41,8 +30,6 @@ CHORD_GAP_S = 0.04  # a piano chord is complete this long after its last note (o
 ROLLED_FRACTION = 0.3  # a pitch of the last chord this soon (fraction of the time to the next chord) is a late chord note
 GRACE_S = 0.07  # grace notes (zero duration in the score) sound this long, just before the beat
 LEGATO = 0.95  # string notes stop at this fraction of their written length (min 50 ms)
-DRIFT_BEATS = 1.0  # follower/matched-chord disagreement that counts as drift
-DRIFT_COUNT = 3  # consecutive drifting chords before the position jumps to the follower
 
 CARRY_BEATS = 1.5  # past an expected piano chord with no piano, the strings carry on this long...
 TRAIL_S = 0.8  # ...then trail off over this long: notes ending sooner finish, the rest fade out
@@ -60,12 +47,6 @@ TIME_PENALTY = 0.5  # per beat between the candidate and the clock's prediction
 SKIP_PENALTY = 0.4  # per score chord skipped past the next expected one
 BACK_PENALTY = 0.6  # per score chord stepped back (to undo an earlier wrong match)
 MIN_SCORE = 0.0  # below this the chord is treated as stray notes
-
-# Coupling by passage (only with a leadership annotation). A coupling of COUPLING["piano"] is the
-# clock's own alpha and beta, so piano-led passages behave exactly as without an annotation.
-BETA_PER_COUPLING = 0.3 / 0.7  # period correction scales with the coupling
-WAIT_EXTRA = 0.15  # extra phase correction when the pianist is late: the strings wait a little
-HOME_PULL = 0.3  # per chord, at coupling 0, the period moves this fraction back to the strings' tempo
 
 
 @dataclass(frozen=True)
@@ -99,7 +80,6 @@ class Accompanist:
     last_bar: int = 16
     clock: BeatClock = field(default_factory=lambda: BeatClock(spb=60 / 63))
     velocity: int = 80  # every note, without dynamics
-    leadership: list[Passage] | None = None  # None: the piano always leads
     dynamics: bool = True  # loudness from the score's dynamics (dynamics.py): expression (CC11) following the
                            # marked levels, hairpins and phrasing, through held notes too; velocity picks the layer
 
@@ -145,14 +125,9 @@ class Accompanist:
         self.next_note = 0  # index into self.notes of the next note to start
         self.sounding: list[tuple[float, StringNote]] = []  # (end beat, note)
         self.queued: list[Out] = []  # produced by inputs, emitted by the next `due`
-        self.drift = 0
-        self.follower_beat: float | None = None  # the follower's latest estimate
-        self.follower_trusted = False  # set once the follower agrees with us; cleared on every restart
         self.probation = 0  # chords left that must fit after a restart
         self.log: list[tuple[float, float, float]] = []  # (time, matched beat, asynchrony) per piano chord
         self.notices: list[tuple[float, str]] = []  # state changes, for the live display
-        self.home_spb = self.clock.spb  # the strings' own tempo, where they lead
-        self.passage: Passage | None = None  # the leadership passage of the last chord matched
 
     # --- inputs -------------------------------------------------------------------------------------
 
@@ -186,9 +161,6 @@ class Accompanist:
         nxt = self._next_onset()
         if nxt is not None and self.piano_pitches[nxt] <= self.pending[2]:
             self._finish_chord()
-
-    def on_follower(self, t: float, beat: float) -> None:
-        self.follower_beat = beat
 
     def on_cue(self, t: float, cue: Cue) -> str:
         """A voice cue. Returns (and posts as a notice) what the strings will do."""
@@ -364,9 +336,8 @@ class Accompanist:
             self.clock.anchor(t, beat)  # stepping back to fix an earlier wrong match: phase only
             asyn = 0.0
         else:
-            asyn = self._correct(t, beat)
+            asyn = self.clock.correct(t, beat, self.last_beat)
         self._matched(t, beat, asyn)
-        self._check_drift(t)
 
     def _restart(self, t: float, pitches: frozenset[int]) -> None:
         beat = self._restart_beat(pitches)
@@ -378,8 +349,6 @@ class Accompanist:
         self.clock.anchor(t, beat)  # tempo carries over from before the stop
         self.started, self.waiting, self.trail_start = True, False, None
         self.next_note = next((i for i, n in enumerate(self.notes) if n.onset_beat >= beat), len(self.notes))
-        self.follower_trusted = False
-        self.drift = 0
         self.probation = PROBATION_CHORDS
         bar, bib = self.score.bar_at(beat)
         self.notices.append((t, f"with you at bar {bar} beat {bib:g}"))
@@ -408,54 +377,7 @@ class Accompanist:
         score, best = max(scored)
         return best if self._sim(pitches, self.piano_pitches[best]) >= RESTART_MIN_SIM else None
 
-    def _check_drift(self, t: float) -> None:
-        f = self.follower_beat
-        if f is None:
-            return
-        close = abs(f - self.last_beat) <= DRIFT_BEATS
-        if not self.follower_trusted:
-            # After a restart the follower may still be elsewhere (it cannot jump back); ignore it until
-            # it agrees with us again.
-            self.follower_trusted = close
-            return
-        if close:
-            self.drift = 0
-            return
-        self.drift += 1
-        if self.drift >= DRIFT_COUNT:
-            # Trust the follower: jump to the piano chord at or before its estimate, keeping the tempo.
-            beat = max((b for b in self.piano_onsets if b <= f), default=self.piano_onsets[0])
-            self.clock.anchor(t, beat)
-            self.last_beat = beat
-            self.drift = 0
-
-    def passage_at(self, beat: float) -> Passage | None:
-        if self.leadership is None:
-            return None
-        i = max(0, bisect.bisect_right([b for b, _ in self.bar_starts], beat) - 1)
-        bar = self.bar_starts[i][1]
-        return next((p for p in self.leadership if p.first_bar <= bar <= p.last_bar), None)
-
-    def _correct(self, t: float, beat: float) -> float:
-        """Correct the clock for a piano chord, coupled as the passage says (if there is an annotation)."""
-        p = self.passage_at(beat)
-        if p is None:
-            return self.clock.correct(t, beat, self.last_beat)
-        c = p.coupling
-        late = t > self.clock.time_of(beat)
-        free = max(0.0, 1 - c / COUPLING["piano"])  # 0 where the piano leads, 1 at coupling 0
-        asyn = self.clock.correct(t, beat, self.last_beat, alpha=min(1.0, c + WAIT_EXTRA * late * free),
-                                  beta=BETA_PER_COUPLING * c, home_spb=self.home_spb, pull=HOME_PULL * free)
-        if free == 0.0:
-            self.home_spb = self.clock.spb  # the strings take over at the tempo the pianist set
-        return asyn
-
     def _matched(self, t: float, beat: float, asyn: float) -> None:
-        p = self.passage_at(beat)
-        if p is not None and p != self.passage:
-            self.passage = p
-            who = {"piano": "piano leads", "strings": "strings lead", "shared": "shared"}[p.lead]
-            self.notices.append((t, f"bars {p.first_bar}-{p.last_bar}: {who} (coupling {p.coupling:g})"))
         self.last_beat = beat
         self.last_chord_t = t
         self.log.append((t, beat, asyn))

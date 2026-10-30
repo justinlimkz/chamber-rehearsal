@@ -10,14 +10,13 @@ struct Fixture: Decodable {
     var name: String
     var firstBar: Int, lastBar: Int
     var tempo: Double
-    var leadership: Bool
     var onsets: [(Double, Int)]
     var cues: [(Double, Cue)]
     var outs: [Out]
     var log: [LogEntry]
     var notices: [Notice]
 
-    private enum Keys: String, CodingKey { case name, firstBar, lastBar, tempo, leadership, onsets, cues, outs, log, notices }
+    private enum Keys: String, CodingKey { case name, firstBar, lastBar, tempo, onsets, cues, outs, log, notices }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
@@ -25,7 +24,6 @@ struct Fixture: Decodable {
         firstBar = try c.decode(Int.self, forKey: .firstBar)
         lastBar = try c.decode(Int.self, forKey: .lastBar)
         tempo = try c.decode(Double.self, forKey: .tempo)
-        leadership = try c.decode(Bool.self, forKey: .leadership)
         onsets = []
         var u = try c.nestedUnkeyedContainer(forKey: .onsets)
         while !u.isAtEnd {
@@ -104,8 +102,7 @@ do {
     for f in files {
         let fx = try Fixture(path: fixturesDir + "/" + f)
         let res = Simulator.run(score: score, onsets: fx.onsets, firstBar: fx.firstBar, lastBar: fx.lastBar,
-                                clock: BeatClock(spb: 60 / fx.tempo), cues: fx.cues,
-                                leadership: fx.leadership ? score.leadership : nil)
+                                clock: BeatClock(spb: 60 / fx.tempo), cues: fx.cues)
         var problems: [String] = []
         if let p = compare("outs", fx.outs, res.outs, differ: outMismatch, show: show) { problems.append(p) }
         if let p = compare("log", fx.log, res.log, differ: { $0 != $1 },

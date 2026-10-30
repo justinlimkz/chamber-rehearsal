@@ -3,21 +3,12 @@
 // Accompaniment scheduler: plays the string parts ahead of the predicted beats.
 //
 // Event-driven and clock-agnostic, so the same object runs live (wall clock) and offline (take time):
-// feed it piano notes, follower positions and voice cues, and ask `due(now)` for what to play.
+// feed it piano notes and voice cues, and ask `due(now)` for what to play.
 //
-// Where the pianist is comes from two sources:
-// - Each piano chord is matched to a chord of the piano part near the beat clock's prediction, by pitch
-//   set, preferring the next chord in the score. This keeps the clock steady in bars of repeated
-//   identical chords, where the follower runs an eighth ahead, and the distinct bass notes on downbeats
-//   pull it back if it slips.
-// - The follower corrects gross drift: if it disagrees with the matched chord by more than a beat several
-//   chords running, the position jumps to the follower.
-//
-// Who leads: by default the piano always leads and the clock follows it closely. Given a leadership
-// annotation, each piano chord is coupled by its passage's setting instead: the clock moves `coupling`
-// of the way to the pianist, waits a little more when the pianist is late than it hurries when they are
-// early, and where the strings lead it is pulled back towards the strings' own tempo (`homeSpb`: the
-// starting tempo, then whatever tempo the last piano-led passage ended in).
+// Where the pianist is: each piano chord is matched to a chord of the piano part near the beat clock's
+// prediction, by pitch set, preferring the next chord in the score. This keeps the clock steady in bars of
+// repeated identical chords, and the distinct bass notes on downbeats pull it back if it slips. The piano
+// leads: the clock follows it closely.
 //
 // Stopping and starting again:
 // - When the pianist stops, the strings carry on for a beat and a half, then trail off: notes that end
@@ -33,8 +24,6 @@ let CHORD_GAP_S = 0.04  // a piano chord is complete this long after its last no
 let ROLLED_FRACTION = 0.3  // a pitch of the last chord this soon (fraction of the time to the next chord) is a late chord note
 let GRACE_S = 0.07  // grace notes (zero duration in the score) sound this long, just before the beat
 let LEGATO = 0.95  // string notes stop at this fraction of their written length (min 50 ms)
-let DRIFT_BEATS = 1.0  // follower/matched-chord disagreement that counts as drift
-let DRIFT_COUNT = 3  // consecutive drifting chords before the position jumps to the follower
 
 let CARRY_BEATS = 1.5  // past an expected piano chord with no piano, the strings carry on this long...
 let TRAIL_S = 0.8  // ...then trail off over this long: notes ending sooner finish, the rest fade out
@@ -52,12 +41,6 @@ let TIME_PENALTY = 0.5  // per beat between the candidate and the clock's predic
 let SKIP_PENALTY = 0.4  // per score chord skipped past the next expected one
 let BACK_PENALTY = 0.6  // per score chord stepped back (to undo an earlier wrong match)
 let MIN_SCORE = 0.0  // below this the chord is treated as stray notes
-
-// Coupling by passage (only with a leadership annotation). A coupling of COUPLING["piano"] is the
-// clock's own alpha and beta, so piano-led passages behave exactly as without an annotation.
-let BETA_PER_COUPLING = 0.3 / 0.7  // period correction scales with the coupling
-let WAIT_EXTRA = 0.15  // extra phase correction when the pianist is late: the strings wait a little
-let HOME_PULL = 0.3  // per chord, at coupling 0, the period moves this fraction back to the strings' tempo
 
 /// A voice cue (voice.Cue).
 public struct Cue: Equatable, Sendable, CustomStringConvertible {
@@ -119,7 +102,6 @@ public final class Accompanist {
     public let lastBar: Int
     public var clock: BeatClock
     public let velocity: Int  // every note, without dynamics
-    public let leadership: [Passage]?  // nil: the piano always leads
     public let dynamics: Bool  // loudness from the score's dynamics: expression (CC11) following the marked
                                // levels and hairpins, through held notes too; notes at TOP_VELOCITY
     let levels: [String: [(Double, Double)]]?
@@ -155,20 +137,15 @@ public final class Accompanist {
     var nextNote = 0  // index into notes of the next note to start
     var sounding: [(end: Double, note: StringNote)] = []
     var queued: [Out] = []  // produced by inputs, emitted by the next `due`
-    var drift = 0
-    var followerBeat: Double? = nil  // the follower's latest estimate
-    var followerTrusted = false  // set once the follower agrees with us; cleared on every restart
     var probation = 0  // chords left that must fit after a restart
     public private(set) var log: [LogEntry] = []  // (time, matched beat, asynchrony) per piano chord
     public private(set) var notices: [Notice] = []  // state changes, for the live display
-    var homeSpb: Double  // the strings' own tempo, where they lead
-    var passage: Passage? = nil  // the leadership passage of the last chord matched
 
     public init(score: ScoreData, firstBar: Int = 1, lastBar: Int = 16,
                 clock: BeatClock = BeatClock(spb: 60.0 / 63.0), velocity: Int = 80,
-                leadership: [Passage]? = nil, dynamics: Bool = true) {
+                dynamics: Bool = true) {
         self.score = score; self.firstBar = firstBar; self.lastBar = lastBar
-        self.clock = clock; self.velocity = velocity; self.leadership = leadership; self.dynamics = dynamics
+        self.clock = clock; self.velocity = velocity; self.dynamics = dynamics
         levels = dynamics ? score.dynamics : nil
         let starts = score.barStarts
         barStarts = starts
@@ -202,7 +179,6 @@ public final class Accompanist {
         notes = all.map { $0.1 }
         restartFrom = pianoOnsets[0]  // piano chord a restart is expected at...
         lastStart = startBeat
-        homeSpb = clock.spb
     }
 
     // MARK: inputs
@@ -240,10 +216,6 @@ public final class Accompanist {
         if let nxt = nextOnset(), pianoPitches[nxt]!.isSubset(of: pending!.pitches) {
             finishChord()
         }
-    }
-
-    public func onFollower(_ t: Double, _ beat: Double) {
-        followerBeat = beat
     }
 
     /// A voice cue. Returns (and posts as a notice) what the strings will do.
@@ -460,10 +432,9 @@ public final class Accompanist {
             clock.anchor(t, beat)  // stepping back to fix an earlier wrong match: phase only
             asyn = 0.0
         } else {
-            asyn = correct(t, beat)
+            asyn = clock.correct(t, beat, prevBeat: lastBeat)
         }
         matched(t, beat, asyn)
-        checkDrift(t)
     }
 
     private func restart(_ t: Double, _ pitches: Set<Int>) {
@@ -477,8 +448,6 @@ public final class Accompanist {
         clock.anchor(t, beat)  // tempo carries over from before the stop
         started = true; waiting = false; trailStart = nil
         nextNote = notes.firstIndex(where: { $0.onsetBeat >= beat }) ?? notes.count
-        followerTrusted = false
-        drift = 0
         probation = PROBATION_CHORDS
         let (bar, bib) = score.barAt(beat)
         notices.append(Notice(t: t, text: "with you at bar \(bar) beat \(fmtG(bib))"))
@@ -517,58 +486,7 @@ public final class Accompanist {
         return sim(pitches, pianoPitches[best.1]!) >= RESTART_MIN_SIM ? best.1 : nil
     }
 
-    private func checkDrift(_ t: Double) {
-        guard let f = followerBeat else { return }
-        let close = abs(f - lastBeat!) <= DRIFT_BEATS
-        if !followerTrusted {
-            // After a restart the follower may still be elsewhere (it cannot jump back); ignore it until
-            // it agrees with us again.
-            followerTrusted = close
-            return
-        }
-        if close {
-            drift = 0
-            return
-        }
-        drift += 1
-        if drift >= DRIFT_COUNT {
-            // Trust the follower: jump to the piano chord at or before its estimate, keeping the tempo.
-            let beat = pianoOnsets.filter { $0 <= f }.max() ?? pianoOnsets[0]
-            clock.anchor(t, beat)
-            lastBeat = beat
-            drift = 0
-        }
-    }
-
-    func passageAt(_ beat: Double) -> Passage? {
-        guard let leadership = leadership else { return nil }
-        let i = max(0, upperBound(barStarts.map { $0.0 }, beat) - 1)
-        let bar = barStarts[i].1
-        return leadership.first(where: { $0.firstBar <= bar && bar <= $0.lastBar })
-    }
-
-    /// Correct the clock for a piano chord, coupled as the passage says (if there is an annotation).
-    private func correct(_ t: Double, _ beat: Double) -> Double {
-        guard let p = passageAt(beat) else {
-            return clock.correct(t, beat, prevBeat: lastBeat)
-        }
-        let c = p.coupling
-        let late = t > clock.timeOf(beat)
-        let free = max(0.0, 1 - c / COUPLING["piano"]!)  // 0 where the piano leads, 1 at coupling 0
-        let asyn = clock.correct(t, beat, prevBeat: lastBeat, alpha: min(1.0, c + WAIT_EXTRA * (late ? 1.0 : 0.0) * free),
-                                 beta: BETA_PER_COUPLING * c, homeSpb: homeSpb, pull: HOME_PULL * free)
-        if free == 0.0 {
-            homeSpb = clock.spb  // the strings take over at the tempo the pianist set
-        }
-        return asyn
-    }
-
     private func matched(_ t: Double, _ beat: Double, _ asyn: Double) {
-        if let p = passageAt(beat), p != passage {
-            passage = p
-            let who = ["piano": "piano leads", "strings": "strings lead", "shared": "shared"][p.lead]!
-            notices.append(Notice(t: t, text: "bars \(p.firstBar)-\(p.lastBar): \(who) (coupling \(fmtG(p.coupling)))"))
-        }
         lastBeat = beat
         lastChordT = t
         log.append(LogEntry(t: t, beat: beat, asyn: asyn))

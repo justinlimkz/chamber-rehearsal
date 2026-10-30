@@ -1,7 +1,7 @@
-"""MIDI input, recording and replay. Events are plain data so the same stream feeds live and offline paths."""
+"""MIDI files: takes (the piano alone) and sessions (piano and strings, a channel per part, as the iPad saves them).
+Events are plain data, read from a file and replayed in virtual time."""
 from __future__ import annotations
 
-import queue
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -12,6 +12,8 @@ import mido
 TICKS_PER_BEAT = 480
 TEMPO = 500_000  # 120 bpm -> 960 ticks per second; recordings are stored in wall-clock time
 TICKS_PER_SECOND = TICKS_PER_BEAT * 1_000_000 / TEMPO
+CHANNELS = {"Violin": 0, "Viola": 1, "Violoncello": 2, "Piano": 3}  # in a session file
+PROGRAMS = {"Violin": 40, "Viola": 41, "Violoncello": 42, "Piano": 0}  # General MIDI
 
 
 @dataclass(frozen=True)
@@ -42,49 +44,6 @@ def to_message(ev: MidiEvent) -> mido.Message:
     if ev.kind == "note_off":
         return mido.Message("note_off", note=ev.note, velocity=ev.value)
     return mido.Message("control_change", control=64, value=ev.value)
-
-
-def list_inputs() -> list[str]:
-    return mido.get_input_names()
-
-
-# The FP-30 reports itself over USB as "Roland Digital Piano", not by model name.
-PIANO_HINTS = ("FP-30", "Roland Digital Piano")
-
-
-def find_piano_input(hints: Iterable[str] = PIANO_HINTS) -> str | None:
-    names = [n for n in list_inputs() if n]  # a port being unplugged can briefly have no name
-    for hint in hints:
-        for n in names:
-            if hint.lower() in n.lower():
-                return n
-    return None
-
-
-def live_events(port_name: str | None = None) -> Iterator[MidiEvent]:
-    """Blocking iterator of events from a live port; time is seconds since the port opens.
-
-    The port is looked up immediately, so a missing piano raises here rather than on first read.
-    Timestamps are taken in the rtmidi callback, not when the consumer gets round to reading.
-    """
-    name = port_name or find_piano_input()
-    if name is None:
-        raise RuntimeError(f"FP-30 not found. MIDI inputs: {list_inputs() or 'none'}")
-    return _port_events(name)
-
-
-def _port_events(name: str) -> Iterator[MidiEvent]:
-    q: queue.SimpleQueue[MidiEvent] = queue.SimpleQueue()
-    t0 = time.perf_counter()
-
-    def on_msg(msg: mido.Message) -> None:
-        ev = from_message(msg, time.perf_counter() - t0)
-        if ev is not None:
-            q.put(ev)
-
-    with mido.open_input(name, callback=on_msg):
-        while True:
-            yield q.get()
 
 
 def write_take(events: Iterable[MidiEvent], path: str | Path) -> None:

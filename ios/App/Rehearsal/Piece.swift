@@ -4,8 +4,7 @@ import UniformTypeIdentifiers
 
 // The pieces the app can rehearse: folders holding score.json (the strings' notes and dynamics) and
 // score.musicxml (the page to engrave), made here from a MusicXML file (`fromMusicXML`) or on the Mac by
-// `rehearsal bundle` (older bundles have the Mac's engraving.svg and anchors.json instead). The ones that come with
-// the app live in its bundle; added ones are copied into
+// `rehearsal bundle`. The ones that come with the app live in its bundle; added ones are copied into
 // Documents/Pieces (Files › On My iPad › Rehearsal › Pieces). The library lists works with their movements
 // under them, from each bundle's composer, work and movement.
 
@@ -20,7 +19,7 @@ struct Piece: Identifiable, Hashable, Sendable {
     let builtIn: Bool
     var notice: String? = nil  // shown when adding it, e.g. parts the app won't play
 
-    static let files = ["score.json", "score.musicxml", "engraving.svg", "anchors.json"]  // the ones there are
+    static let files = ["score.json", "score.musicxml"]
     static let type = UTType(exportedAs: "kz.justinlim.rehearsal.piece")  // a bundle folder named *.rehearsal
     static let musicXML = [UTType(importedAs: "org.musicxml.musicxml"), UTType(importedAs: "org.musicxml.compressed")]
 
@@ -54,7 +53,7 @@ struct Piece: Identifiable, Hashable, Sendable {
     init(url: URL, builtIn: Bool) throws {
         let has = { FileManager.default.fileExists(atPath: url.appendingPathComponent($0).path) }
         if !has("score.json") { throw PieceError.missing("score.json") }
-        if !has("score.musicxml") && !(has("engraving.svg") && has("anchors.json")) { throw PieceError.missing("score.musicxml") }
+        if !has("score.musicxml") { throw PieceError.missing("score.musicxml") }
         let score = try ScoreData.load(path: url.appendingPathComponent("score.json").path)
         self.id = url.deletingPathExtension().lastPathComponent
         self.url = url
@@ -65,9 +64,6 @@ struct Piece: Identifiable, Hashable, Sendable {
         bars = Set(score.barStarts.map { $0.1 }).count
         strings = STRING_PARTS.filter { score.partNames.contains($0) }
     }
-
-    /// The score engraved on the iPad (any parts, any size), not the Mac's fixed engraving.
-    var engravable: Bool { FileManager.default.fileExists(atPath: url.appendingPathComponent("score.musicxml").path) }
 
     /// "Robert Schumann" -> "Schumann"
     var composerSurname: String { composer.split(separator: " ").last.map(String.init) ?? composer }

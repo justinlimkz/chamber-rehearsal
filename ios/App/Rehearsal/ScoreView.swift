@@ -1,13 +1,13 @@
 import SwiftUI
 import WebKit
 
-// The engraved score that follows you: the same page the Mac serves to Safari (rehearsal/web/ipad.html),
-// in a web view, without its header (the app draws the status strip and the controls). The page engraves the
-// piece's MusicXML itself, with Verovio, to the screen's width and the parts and size chosen here (`setView`).
+// The engraved score that follows you: a page (ios/Web/score.html) in a web view; the app draws the status strip
+// and the controls around it. The page engraves the piece's MusicXML itself, with Verovio, to the screen's width
+// and the parts and size chosen here (`setView`).
 // Its files come from the app and the piece's folder through the `rehearsal:` scheme; the session's state goes
 // in ten times a second (`receive`); taps on bars come back as cues.
 
-/// Which parts the score shows (nil: all) and how large (1 = the Mac's size on a 13-inch iPad in portrait).
+/// Which parts the score shows (nil: all) and how large (1 = a 2100-unit page on a 13-inch iPad in portrait).
 struct ScoreLook: Codable, Equatable {
     var parts: [String]? = nil
     var size: Double = 1
@@ -35,7 +35,7 @@ struct ScoreView: UIViewRepresentable {
         web.scrollView.bounces = false
         web.isOpaque = false
         web.backgroundColor = UIColor(Paper.color)
-        web.load(URLRequest(url: URL(string: "rehearsal://app/ipad.html")!))
+        web.load(URLRequest(url: URL(string: "rehearsal://app/score.html")!))
         context.coordinator.start(web)
         return web
     }
@@ -76,8 +76,8 @@ struct ScoreView: UIViewRepresentable {
             let piece = session.piece.url
             let body: Data?, type: String
             switch path {
-            case "/ipad.html":
-                body = try? Data(contentsOf: Bundle.main.url(forResource: "ipad", withExtension: "html")!)
+            case "/score.html":
+                body = try? Data(contentsOf: Bundle.main.url(forResource: "score", withExtension: "html")!)
                 type = "text/html"
             case "/score":
                 body = try? JSONSerialization.data(withJSONObject: session.layout())
@@ -90,12 +90,6 @@ struct ScoreView: UIViewRepresentable {
                 type = "application/xml"
             case "/view":
                 body = Data(look.json.utf8)
-                type = "application/json"
-            case "/engraving.svg":
-                body = try? Data(contentsOf: piece.appendingPathComponent("engraving.svg"))
-                type = "image/svg+xml"
-            case "/anchors":
-                body = try? Data(contentsOf: piece.appendingPathComponent("anchors.json"))
                 type = "application/json"
             default:
                 body = nil; type = "text/plain"

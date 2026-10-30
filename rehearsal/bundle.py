@@ -1,15 +1,13 @@
-"""A piece packed for the iPad app: everything the app needs, made on the Mac with the Python tools.
+"""A piece packed for the iPad app on the Mac (the app makes the same from a MusicXML file itself).
 
 `<out>/score.json`: title, composer, work and movement (from `<score>.piece.yaml`, if there is one), the
 bars (unfolded, in playing order) and every note of every part in quarter-note beats, each string part's
-loudness curve from the score's dynamics (`dynamics.py`: [beat, dB from mf] points, linear between them),
-and who leads where (the `.lead.yaml`, if there is one). `<out>/score.musicxml`: the score itself, which
-the iPad engraves with Verovio to its screen, with the parts and size chosen there. Nothing needs
-annotating by hand: the leadership file and the piece file are optional.
+loudness curve from the score's dynamics (`dynamics.py`: [beat, dB from mf] points, linear between them).
+`<out>/score.musicxml`: the score itself, which the iPad engraves with Verovio to its screen, with the parts and
+size chosen there. The piece file is optional.
 
 Golden fixtures for the app's engine (`fixtures`): recorded takes run through the Python accompanist,
-with what it played. The Swift port must play the same notes at the same times. The follower
-(Matchmaker) is left out: on the takes it changes nothing (2026-10-28), and the app has no Matchmaker.
+with what it played. The Swift port must play the same notes at the same times.
 """
 from __future__ import annotations
 
@@ -18,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from . import annotate, dynamics, engrave, midi_io, reference, session, simulate
+from . import dynamics, midi_io, musicxml, reference, session, simulate
 from .accompanist import STRING_PARTS
 from .score import Score
 from .tempo import BeatClock
@@ -56,47 +54,37 @@ def import_fixtures(paths: list[Path], out: Path) -> list[Path]:
 
 def export(score: Score, out: Path) -> Path:
     out.mkdir(parents=True, exist_ok=True)
-    lead_path = annotate.annotation_path(score.path)
-    leadership = annotate.load(lead_path) if lead_path.exists() else None
     meta_path = score.path.with_suffix(".piece.yaml")
     meta = yaml.safe_load(meta_path.read_text()) if meta_path.exists() else {}
     data = {
         **score_data(score),
         "work": meta.get("work", score.title),  # for the library: works, with their movements under them
         "movement": meta.get("movement", ""),
-        "leadership": [{"firstBar": p.first_bar, "lastBar": p.last_bar, "lead": p.lead, "coupling": p.coupling}
-                       for p in leadership] if leadership else None,
     }
     (out / "score.json").write_text(json.dumps(data))
-    (out / "score.musicxml").write_text(engrave.musicxml(score.path))  # the iPad engraves it itself
-    for old in ("engraving.svg", "anchors.json", "engraving-piano.svg", "anchors-piano.json"):  # older bundles'
-        (out / old).unlink(missing_ok=True)
+    (out / "score.musicxml").write_bytes(musicxml.text(score.path))  # the iPad engraves it itself
     return out
 
 
 def fixtures(score: Score, out: Path, takes: list[Path], sessions: list[Path]) -> list[Path]:
     """One JSON file per case: the inputs (piano onsets, cues), the settings, and what the strings played."""
     out.mkdir(parents=True, exist_ok=True)
-    lead_path = annotate.annotation_path(score.path)
-    cases = [(p.stem, midi_io.read_take(p), 1, 16, False, []) for p in takes]
-    if lead_path.exists() and takes:
-        cases.append((takes[-1].stem + "-lead", midi_io.read_take(takes[-1]), 1, 16, True, []))
+    cases = [(p.stem, midi_io.read_take(p), 1, 16, []) for p in takes]
     if takes:
         events, cues = _cue_take(score, midi_io.read_take(takes[0]))
-        cases.append(("cues", events, 1, 16, False, cues))
+        cases.append(("cues", events, 1, 16, cues))
         events, cues = _pause_take(score, midi_io.read_take(takes[0]))
-        cases.append(("pause", events, 1, 16, False, cues))
+        cases.append(("pause", events, 1, 16, cues))
     for p in sessions:
         piano = session.read(p)[0]
-        cases.append(("session-" + p.stem, piano, 1, 132, False, []))
+        cases.append(("session-" + p.stem, piano, 1, 132, []))
     written = []
-    for name, events, first, last, lead, cues in cases:
+    for name, events, first, last, cues in cases:
         tempo = 63.0
-        res = simulate.run(score, events, first, last, clock=BeatClock(spb=60 / tempo), follow=False, cues=cues,
-                           leadership=annotate.load(lead_path) if lead else None)
+        res = simulate.run(score, events, first, last, clock=BeatClock(spb=60 / tempo), cues=cues)
         acc = res.accompanist
         case = {
-            "name": name, "firstBar": first, "lastBar": last, "tempo": tempo, "leadership": lead,
+            "name": name, "firstBar": first, "lastBar": last, "tempo": tempo,
             "onsets": [[e.time, e.note] for e in events if e.is_onset],
             "cues": [[t, c.kind, c.bar, c.pickup] for t, c in cues],
             "outs": [[o.time, o.kind, o.part, o.pitch, o.velocity, o.beat] for o in res.outs],

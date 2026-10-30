@@ -1,22 +1,7 @@
 import Foundation
 
 // Stand-in for rehearsal/score.py: only what the engine needs (bar starts, bar_at, notes per part),
-// read from the JSON bundle (score.json) instead of MusicXML. Also Passage and COUPLING from annotate.py.
-
-/// Leadership coupling presets (annotate.COUPLING).
-public let COUPLING: [String: Double] = ["piano": 0.7, "shared": 0.4, "strings": 0.15]
-
-/// A leadership passage (annotate.Passage; the `reason` is not needed by the engine).
-public struct Passage: Equatable, Sendable, Decodable {
-    public var firstBar: Int
-    public var lastBar: Int
-    public var lead: String  // "piano" | "shared" | "strings"
-    public var coupling: Double
-
-    public init(firstBar: Int, lastBar: Int, lead: String, coupling: Double) {
-        self.firstBar = firstBar; self.lastBar = lastBar; self.lead = lead; self.coupling = coupling
-    }
-}
+// read from the JSON bundle (score.json) instead of MusicXML.
 
 /// A note of the score (score.ScoreNote, reduced): onset and duration in quarter-note beats.
 public struct ScoreNote: Equatable, Sendable {
@@ -32,12 +17,11 @@ public struct ScoreData: Sendable, Decodable {
     public var movement: String  // "" when the piece is a whole work, or not known
     /// (quarter-note position, written bar number) for every bar of the unfolded piano part, in order.
     public var barStarts: [(Double, Int)]
-    public var leadership: [Passage]?
     /// Each string part's loudness from the score's dynamics (dynamics.curves): (beat, dB from mf) points.
     public var dynamics: [String: [(Double, Double)]]
     private var parts: [String: [ScoreNote]]
 
-    private enum CodingKeys: String, CodingKey { case title, composer, work, movement, barStarts, parts, leadership, dynamics }
+    private enum CodingKeys: String, CodingKey { case title, composer, work, movement, barStarts, parts, dynamics }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -52,7 +36,6 @@ public struct ScoreData: Sendable, Decodable {
             starts.append((try p.decode(Double.self), try p.decode(Int.self)))
         }
         barStarts = starts
-        leadership = try c.decodeIfPresent([Passage].self, forKey: .leadership)
         let dyn = try c.decodeIfPresent([String: [[Double]]].self, forKey: .dynamics) ?? [:]
         dynamics = dyn.mapValues { rows in rows.map { ($0[0], $0[1]) } }
         let raw = try c.decode([String: [[Double]]].self, forKey: .parts)

@@ -3,10 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Rehearsal">
 <title>Rehearsal score</title>
 <style>
 :root {
@@ -17,19 +13,6 @@
 html, body { margin: 0; height: 100%; background: var(--paper); color: var(--ink);
   font: 16px/1.3 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
 body { display: flex; flex-direction: column; overflow: hidden; }
-button { font: inherit; color: inherit; }
-header { flex: none; display: flex; align-items: center; gap: 14px; padding: calc(env(safe-area-inset-top) + 6px) 16px 6px;
-  background: var(--bar); border-bottom: 1px solid var(--line); min-height: 56px; }
-.title { flex: 1 1 auto; min-width: 0; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.where { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.where small { font-size: 14px; font-weight: 500; color: var(--muted); margin-left: 6px; }
-[hidden] { display: none !important; }
-.chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; font-size: 15px; font-weight: 600;
-  background: #fff; border: 1px solid var(--line); white-space: nowrap; }
-.chip i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
-.chip.warn { color: #A23B1E; border-color: #E9B8A8; background: #FCEDE8; }
-.btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid #CFCBC2; background: #fff; font-size: 15px; cursor: pointer; touch-action: manipulation; }
-.btn:active { background: var(--bar); }
 #scroller { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; position: relative; }
 #music { position: relative; padding: 0 6px 60vh; }
 #music svg { display: block; width: 100%; height: auto; }
@@ -39,60 +22,26 @@ header { flex: none; display: flex; align-items: center; gap: 14px; padding: cal
 #target { background: var(--amber-tint); outline: 2px solid var(--amber); }
 #head { width: 3px; margin-left: -1.5px; background: var(--blue); border-radius: 2px; }
 #loading { padding: 40px; color: var(--muted); }
-#toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%);
-  background: var(--ink); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 16px; opacity: 0; transition: opacity .25s; pointer-events: none; }
-#toast.show { opacity: .92; }
 #engraving { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
   background: rgba(252, 251, 248, .7); color: var(--muted); font-size: 18px; pointer-events: none; }
-/* In the iPad app the status strip and the controls are the app's own: the page only draws the score. */
-.native header, .native #toast { display: none !important; }
-#ended { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(252, 251, 248, .94);
-  font-size: 22px; color: var(--muted); }
 </style>
 </head>
 <body>
-<header>
-  <div class="where" id="where">Bar –</div>
-  <span class="chip" id="state"><i></i><span id="stateText">Connecting…</span></span>
-  <div class="title" id="title"></div>
-  <span class="chip" id="bpm" hidden></span>
-  <button class="btn" type="button" id="pauseBtn" title="The strings sit out while you practise on your own">Pause strings</button>
-  <button class="btn" type="button" data-cue="again">Again</button>
-  <button class="btn" type="button" data-cue="top">From the top</button>
-</header>
 <div id="scroller">
   <div id="music"><div id="loading">Engraving the score…</div></div>
 </div>
-<div id="toast"></div>
 <div id="engraving">Engraving…</div>
-<div id="ended">Session ended. Start a new one on the Mac, then reload.</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const STATES = {
-  ready: ["Ready", "var(--muted)"], playing: ["With you", "var(--blue)"], trailing: ["You stopped", "var(--amber)"],
-  waiting: ["Waiting", "var(--amber)"], paused: ["Paused · on your own", "var(--muted)"], finished: ["Finished", "var(--muted)"],
-};
 let layout = null, st = null, recvAt = 0, anchors = {};
 let bars = {};          // bar number -> {el, system}
-let shownSystem = null, lastTarget = null, toastTimer = 0;
+let shownSystem = null, lastTarget = null;
 
-// In the iPad app the page is fed by the app itself (`receive`) and talks back through a message
-// handler; in Safari, by the Mac's server (server-sent events, POSTs).
-const native = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.rehearsal;
-if (native) document.body.classList.add("native");
-function post(path, body) {
-  if (native) { native.postMessage({ path, body: body || {} }); return; }
-  fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
-}
-function receive(s) { st = s; recvAt = performance.now(); render(); }
-function cue(text) { post("/cue", { text }); }
-function toast(text) {
-  $("toast").textContent = text; $("toast").classList.add("show");
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 1800);
-}
-document.querySelectorAll("[data-cue]").forEach((b) => b.addEventListener("click", () => cue(b.dataset.cue)));
-$("pauseBtn").addEventListener("click", () => { if (st) cue(st.state === "paused" ? "resume" : "pause"); });
+// The app feeds the page its state (`receive`) and hears back through a message handler.
+const native = window.webkit.messageHandlers.rehearsal;
+function receive(s) { st = s; recvAt = performance.now(); }
+function cue(text) { native.postMessage({ path: "/cue", body: { text } }); }
 
 // Bar boxes in the music's own coordinates, from the staff lines: barline to barline, top staff to
 // bottom staff. (Not the bar's whole drawing: slurs and ties reach into the next bar.)
@@ -111,7 +60,7 @@ function box(n) {
 }
 
 // Where the playhead is across a bar, as a fraction of its width: through the notes as they sound
-// (notes aren't spaced evenly in time), from the server's list of where each bar's notes start.
+// (notes aren't spaced evenly in time), from the list of where each bar's notes start (`anchors`).
 function across(n, frac) {
   const b = bars[n];
   if (!b.points) {
@@ -188,7 +137,6 @@ function frame() {
       const frac = Math.max(0, Math.min(1, (beat - bar.start) / bar.beats));
       place($("head"), { left: r.left + across(bar.n, frac) * r.width, top: r.top, width: 3, height: r.height });
     }
-    $("where").innerHTML = "Bar " + bar.n + "<small>beat " + (Math.floor(beat - bar.start) + 1) + "</small>";
     showSystem(bar.n);
   } else {
     $("head").style.display = "none";
@@ -196,7 +144,6 @@ function frame() {
     const lastBeat = st.state === "paused" ? (st.restartBeat ?? st.lastBeat) : st.lastBeat;
     const last = lastBeat != null ? barAt(lastBeat).n : null;
     place($("now"), last != null && !waiting ? box(last) : null);
-    $("where").innerHTML = target != null ? "From bar " + target : last != null ? "Bar " + last : "Bar –";
   }
   place($("target"), target != null ? box(target) : null);
   if (target !== lastTarget) {  // a new place to start: show it, but leave the page alone otherwise
@@ -205,35 +152,13 @@ function frame() {
   }
 }
 
-function render() {
-  const [text, color] = STATES[st.state] || ["", "var(--muted)"];
-  const chip = $("state");
-  if (!st.keyboard) {
-    chip.className = "chip warn"; $("stateText").textContent = "No keyboard: plug in the piano";
-    chip.style.color = "";
-  } else {
-    const listening = (st.state === "waiting" || st.state === "ready" || st.state === "paused") && st.mic === "listening";
-    chip.className = "chip"; chip.style.color = color; $("stateText").textContent = text + (listening ? " · listening" : "");
-  }
-  $("pauseBtn").textContent = st.state === "paused" ? "Resume strings" : "Pause strings";
-  $("pauseBtn").disabled = st.state === "finished";
-  $("bpm").hidden = !st.bpm;
-  if (st.bpm) $("bpm").textContent = "♩ " + Math.round(st.bpm);
-  if (st.lastCue && st.lastCue !== render.lastCue) toast(st.heard ? "“" + st.heard + "”: " + st.lastCue : st.lastCue);
-  render.lastCue = st.lastCue;
-}
-
 // Tap a bar to start there (while stopped, as with "from bar …").
 $("music").addEventListener("click", (e) => {
   const m = e.target.closest && e.target.closest("g.measure");
   if (!m || !st) return;
-  if (st.state === "playing" || st.state === "trailing") {  // brushing the screen while playing does nothing
-    if (!native) toast("Stop playing first, then tap where to start");
-    return;
-  }
+  if (st.state === "playing" || st.state === "trailing") return;  // brushing the screen while playing does nothing
   const n = m.getAttribute("data-n");
   cue(n);
-  toast("From bar " + n);
 });
 
 // Show an engraving: the SVG plus where each bar's notes start (`anchors`).
@@ -247,27 +172,20 @@ function show(svg, a) {
 }
 
 function start() {
-  if (native) {
-    window.receive = receive;
-  } else {
-    const es = new EventSource("/events");
-    es.onmessage = (e) => receive(JSON.parse(e.data));
-    es.addEventListener("end", () => { es.close(); $("ended").style.display = "flex"; });
-  }
+  window.receive = receive;
   requestAnimationFrame(frame);
 }
 
-// In the iPad app the score is engraved here, on the iPad, by Verovio (the same engraver the Mac uses, built
-// for the web): to the screen's width (again when it turns), with the parts and the size chosen in the app
-// (`setView`). A view without every part breaks its lines at the same bars as the full score, so switching
-// keeps your place. Without the MusicXML (the Mac's server, older pieces) the page shows the Mac's engraving.
+// The score is engraved here, on the iPad, by Verovio: to the screen's width (again when it turns), with the
+// parts and the size chosen in the app (`setView`). A view without every part breaks its lines at the same bars
+// as the full score, so switching keeps your place.
 const ENGRAVE = {
   pageHeight: 60000, adjustPageHeight: true, scale: 38, breaks: "auto",
   pageMarginTop: 40, pageMarginBottom: 40, pageMarginLeft: 60, pageMarginRight: 60,
   spacingSystem: 10, spacingStaff: 6, header: "auto", footer: "none", svgViewBox: true,
   svgAdditionalAttribute: ["measure@n"],
 };
-const UNITS_PER_PX = 2100 / 1032;  // the Mac's page width (2100) on a 13-inch iPad in portrait (1032 points)
+const UNITS_PER_PX = 2100 / 1032;  // a 2100-unit page on a 13-inch iPad in portrait (1032 points)
 const PART_WIDTH = 1600 / 2100;  // fewer parts: a narrower page, so drawn larger with the same bars a line
 let tk = null, xml = null, view = { parts: null, size: 1 }, engravedFor = "", partNames = [];
 
@@ -308,7 +226,7 @@ function render(data, pageWidth, breaks) {
   tk.setOptions({ ...ENGRAVE, pageWidth: Math.round(pageWidth), breaks: breaks ? "encoded" : "auto" });
   if (!tk.loadData(data)) throw new Error("Verovio could not read the score");
   const svg = tk.renderToSVG(1);
-  // engrave.engrave's anchors: per bar, (fraction of the bar, ids of the notes and rests starting there)
+  // anchors: per bar, (fraction of the bar, ids of the notes and rests starting there)
   const number = {};
   for (const m of svg.matchAll(/<g id="([^"]+)" class="measure"[^>]*data-n="(\d+)"/g)) number[m[1]] = +m[2];
   const tm = tk.renderToTimemap({ includeMeasures: true, includeRests: true });
@@ -353,30 +271,23 @@ function engrave() {
   }, 30);
 }
 
-// From the app: which parts to show and how large (1 = the Mac's size on a 13-inch iPad in portrait). The whole
-// look each time; the app leaves `parts` out for the full score, so it isn't kept from the last view.
+// From the app: which parts to show and how large (1 = a 2100-unit page on a 13-inch iPad in portrait). The
+// whole look each time; the app leaves `parts` out for the full score, so it isn't kept from the last view.
 window.setView = (v) => { view = { parts: null, size: 1, ...v }; if (tk) engrave(); };
 
 fetch("/score").then((r) => r.json()).then(async (l) => {
   layout = l;
-  $("title").textContent = l.title + " · bars " + l.firstBar + "–" + l.lastBar;
-  const mx = native ? await fetch("/musicxml") : null;
-  if (mx && mx.ok) {
-    xml = await mx.text();
-    partNames = [...xml.matchAll(/<part-name>([^<]*)<\/part-name>/g)].map((m) => m[1].trim());
-    if (native) { const v = await fetch("/view"); if (v.ok) view = { ...view, ...(await v.json()) }; }
-    $("loading").textContent = "Engraving the score…";
-    tk = await loadVerovio();
-    engrave();
-    let resized = 0;
-    window.addEventListener("resize", () => { clearTimeout(resized); resized = setTimeout(engrave, 250); });
-  } else {
-    const [svg, a] = await Promise.all([fetch("/engraving.svg").then((r) => r.text()), fetch("/anchors").then((r) => r.json())]);
-    show(svg, a);
-    window.addEventListener("resize", () => { shownSystem = null; for (const b of Object.values(bars)) delete b.points; });
-  }
+  xml = await fetch("/musicxml").then((r) => r.text());
+  partNames = [...xml.matchAll(/<part-name>([^<]*)<\/part-name>/g)].map((m) => m[1].trim());
+  const v = await fetch("/view");
+  if (v.ok) view = { ...view, ...(await v.json()) };
+  $("loading").textContent = "Engraving the score…";
+  tk = await loadVerovio();
+  engrave();
+  let resized = 0;
+  window.addEventListener("resize", () => { clearTimeout(resized); resized = setTimeout(engrave, 250); });
   start();
-}).catch(() => { $("loading").textContent = "Couldn't load the score. Is the session still running on the Mac?"; });
+}).catch(() => { $("loading").textContent = "Couldn't load the score."; });
 </script>
 </body>
 </html>

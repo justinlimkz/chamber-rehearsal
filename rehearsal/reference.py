@@ -1,7 +1,7 @@
-"""Reference alignment of a real take to the score, so the follower can be scored on real playing.
+"""Reference alignment of a real take to the score, so the strings' timing can be measured on real playing.
 
 Offline, with the whole take in hand: performed notes are grouped into chords, and the chord sequence is
-aligned to the score's onset groups by edit distance on pitch sets. Unlike the live follower it sees the
+aligned to the score's onset groups by edit distance on pitch sets. Unlike the accompanist it sees the
 future, so it serves as ground truth. The opening repeats identical chords, so matching whole chords in
 order is more reliable here than matching single notes.
 """

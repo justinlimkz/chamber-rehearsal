@@ -68,13 +68,14 @@ What the app reads from the score:
 
 ## The Mac tools
 
-The app's engine was developed in Python first, and the Mac side is still where it's tested and tuned. You need
-[uv](https://docs.astral.sh/uv/).
+The engine was written in Python first. That version is kept as the reference the iPad's Swift engine is checked
+against, along with a few tools. You need [uv](https://docs.astral.sh/uv/).
 
 ```sh
-uv run python -m rehearsal.cli ports                 # MIDI inputs
-uv run python -m rehearsal.cli accompany             # rehearse on the Mac (FluidSynth strings)
-uv run python -m rehearsal.cli bundle --score <file.mxl> --out ~/Desktop/<name>.rehearsal
+uv run rehearsal bars --first 1 --last 8             # the score's bars, part by part
+uv run rehearsal simulate take.mid                   # the strings on a recorded take, offline, as a MIDI file
+uv run rehearsal session session.mid                 # timing of a session saved on the iPad
+uv run rehearsal bundle --score <file.mxl> --out ~/Desktop/<name>.rehearsal
                                                     # a piece folder for the iPad, made on the Mac
 ```
 
@@ -90,38 +91,35 @@ swift run --package-path ios/RehearsalCore import-check               # the iPad
 the Python engine's output. `import-check` reads test scores (`tests/musicxml/`, and the scores in `scores/`) the
 iPad's way and compares the notes, bars and dynamics with the Mac's reading. To regenerate both sets of
 expected results:
-`uv run python -m rehearsal.cli bundle --fixtures ios/Fixtures --import-fixtures ios/ImportFixtures`.
+`uv run rehearsal bundle --fixtures ios/Fixtures --import-fixtures ios/ImportFixtures` (the takes it replays
+are kept out of the repository, so this works only where they are).
 
 ## How it fits together
 
 | Path | What |
 |---|---|
-| `rehearsal/` | The Python engine: score reading (`score.py`, `musicxml.py`), tempo (`tempo.py`), the accompanist (`accompanist.py`), dynamics (`dynamics.py`), live and offline runs. |
-| `ios/RehearsalCore/` | The same engine in Swift, as a package, with the two checks above. |
 | `ios/App/` | The iPad app (SwiftUI): library, rehearse screen, strings, piano input, voice cues, recordings. |
-| `rehearsal/web/ipad.html` | The score page: Verovio engraves the MusicXML on the iPad and the page follows along. |
+| `ios/RehearsalCore/` | The engine in Swift, as a package: score reading, tempo, the accompanist, dynamics, with the two checks above. |
+| `ios/Web/score.html` | The score page: Verovio engraves the MusicXML on the iPad and the page follows along. |
+| `rehearsal/` | The Python reference engine: score reading (`musicxml.py`, `score.py`), tempo (`tempo.py`), the accompanist (`accompanist.py`), dynamics (`dynamics.py`), offline runs and the tools above. |
 | `ios/Sounds/strings.sf2` | Violin, viola and cello, cut from MuseScore's MS Basic SoundFont. |
-| `tone/` | Listening tests for the strings' sound: renders, scorecards, blind comparison pages. |
-| `NOTES.md` | The development log: decisions, measurements, and what was tried. |
+| `tone/` | Listening tests for the strings' sound: renders, scorecards, blind comparison pages (`tone/README.md`). |
+| `docs/NOTES.md` | The development log: decisions, measurements, and what was tried. `docs/HANDOFF.md` is the original brief. |
 
 ## Credits and licences
 
 - Strings: the violin, viola and cello of MuseScore's [MS Basic](https://github.com/musescore/MuseScore)
   SoundFont (MuseScore_General, by S. Christian Collins), which builds on FluidR3Mono by Michael Cowgill and Fluid
-  (R3) by Frank Wen. MIT licence; the notices are in `ios/Sounds/LICENSE-MS-Basic.md`. On the Mac the strings
-  play from the full SoundFont as MuseScore Studio installs it.
+  (R3) by Frank Wen. MIT licence; the notices are in `ios/Sounds/LICENSE-MS-Basic.md`. The Mac tools
+  cut them from the SoundFont as MuseScore Studio installs it (`rehearsal/sf2strings.py`).
 - Score engraving: [Verovio](https://www.verovio.org), LGPL-3.0-or-later, loaded unmodified as a separate file
-  (`ios/Web/README.md`). The Mac uses its Python package.
-- Score reading on the Mac: [partitura](https://github.com/CPJKU/partitura), Apache 2.0.
-- Score following on the Mac: [Matchmaker](https://github.com/pymatchmaker/matchmaker) (`pymatchmaker`),
-  Apache 2.0.
-- Sound on the Mac: [FluidSynth](https://www.fluidsynth.org), LGPL-2.1-or-later, through pyfluidsynth (MIT).
-- MIDI, audio and settings on the Mac: mido, python-rtmidi, sounddevice and PyYAML, all MIT.
-- Speech on the Mac: [Vosk](https://alphacephei.com/vosk/), Apache 2.0. The model is downloaded into `models/`
-  and isn't part of the repository. The iPad uses Apple's on-device speech recognition.
+  (`ios/Web/README.md`).
+- Speech: Apple's on-device speech recognition.
+- The Python tools use mido, NumPy and PyYAML (MIT and BSD licences).
 - The listening tests in `tone/` download their reference recordings and samples when run; none are part of the
   repository. They come from the University of Iowa Musical Instrument Samples, VSCO-2 Community Edition (CC0),
   Karoryfer's Big Cat cello (CC0) and Wikimedia Commons (CC0, public domain, CC BY or CC BY-SA, recorded per file).
+  Some of them use FluidSynth (LGPL-2.1), Demucs (MIT) and Google's DDSP (Apache 2.0), installed separately.
 - The Schumann score in `scores/` is a transcription from musescore.com. Check its licence before redistributing
   it.
 

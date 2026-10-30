@@ -15,9 +15,9 @@ import mido
 import numpy as np
 
 from . import midi_io, reference
+from .midi_io import CHANNELS
 from .accompanist import Accompanist
 from .score import Score
-from .sound import CHANNELS
 
 PART_OF = {ch: part for part, ch in CHANNELS.items()}
 PASS_GAP_S = 0.5  # all strings silent this long: they stopped and waited, so a new pass begins

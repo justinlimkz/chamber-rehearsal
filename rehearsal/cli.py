@@ -1,65 +1,11 @@
-"""Command line entry points. Run with: uv run python -m rehearsal.cli <command>"""
+"""Command line entry points. Run with: uv run rehearsal <command>"""
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 from . import midi_io
 from .score import DEFAULT_SCORE, Score, pitch_name
-
-
-def cmd_ports(args) -> int:
-    names = midi_io.list_inputs()
-    print("\n".join(names) if names else "No MIDI inputs found. Is the FP-30 on and plugged in by USB?")
-    return 0 if names else 1
-
-
-def _stream(args):
-    if args.replay:
-        return midi_io.replay(midi_io.read_take(args.replay), realtime=True)
-    return midi_io.live_events(args.port)
-
-
-def cmd_monitor(args) -> int:
-    """Print incoming notes with timestamps (the milestone 1 scale test)."""
-    try:
-        stream = _stream(args)
-        print("Listening. Play something; Ctrl-C to stop.")
-        for ev in stream:
-            if ev.kind == "pedal":
-                print(f"{ev.time:8.3f}s  pedal {'down' if ev.value >= 64 else 'up'} ({ev.value})")
-            elif ev.kind == "note_on":
-                print(f"{ev.time:8.3f}s  on   {pitch_name(ev.note):<4} vel {ev.value}")
-            else:
-                print(f"{ev.time:8.3f}s  off  {pitch_name(ev.note):<4}")
-    except RuntimeError as e:
-        print(e, file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        pass
-    return 0
-
-
-def cmd_record(args) -> int:
-    events: list[midi_io.MidiEvent] = []
-    try:
-        print(f"Recording to {args.out}. Play; Ctrl-C to stop and save.")
-        for ev in midi_io.live_events(args.port):
-            events.append(ev)
-    except RuntimeError as e:
-        print(e, file=sys.stderr)
-        return 1
-    except KeyboardInterrupt:
-        pass
-    if events:
-        # Start the take at the first event so replays begin immediately.
-        t0 = events[0].time
-        midi_io.write_take([midi_io.MidiEvent(e.time - t0, e.kind, e.note, e.value) for e in events], args.out)
-        print(f"\nSaved {len(events)} events to {args.out}")
-    else:
-        print("\nNothing recorded.")
-    return 0
 
 
 def cmd_bars(args) -> int:
@@ -73,80 +19,19 @@ def cmd_bars(args) -> int:
     return 0
 
 
-def cmd_follow(args) -> int:
-    """Follow the piano part and show the current bar and beat (the milestone 2 live test)."""
-    from .follower import MatchmakerFollower
+def cmd_simulate(args) -> int:
+    """The strings on a recorded take, offline, as the iPad would play them: timing, and a MIDI file to listen to."""
+    from . import simulate
+    from .tempo import BeatClock
 
     score = Score(args.score)
-    port = None
-    if not args.replay:
-        port = args.port or midi_io.find_piano_input()
-        if port is None:
-            print(f"FP-30 not found. MIDI inputs: {midi_io.list_inputs() or 'none'}", file=sys.stderr)
-            return 1
-    follower = MatchmakerFollower(score, args.replay, method=args.method, port=port)
-    try:
-        for pos in follower.positions():
-            print(f"bar {pos.bar:>3}  beat {pos.beat_in_bar:4.1f}   (score beat {pos.beat:.1f})", flush=True)
-    except KeyboardInterrupt:
-        pass
-    return 0
-
-
-def cmd_evaluate(args) -> int:
-    from . import evaluate
-
-    score = Score(args.score)
-    log = None if args.no_log else Path("build/eval.jsonl")
-    if args.takes:
-        rows = evaluate.run_recorded(score, Path(args.takes), args.first, args.last, args.method, log=log)
-    else:
-        rows = evaluate.run_scenarios(score, args.first, args.last, args.method, log=log)
-    print(f"method={args.method} bars {args.first}-{args.last}")
-    print(f"{'scenario':<14}{'seed':>4}{'<=.25b':>8}{'<=1b':>7}{'median':>8}{'max':>7}{'final':>7}{'lost':>6}{'secs':>6}")
-    for r in rows:
-        print(f"{r['scenario']:<14}{r['seed']:>4}{r['within_0.25_beat']:>8}{r['within_1_beat']:>7}"
-              f"{r['median_abs_err_beats']:>8}{r['max_abs_err_beats']:>7}{r['final_err_beats']:>7}{r['no_estimate']:>6}{r['wall_s']:>6}")
-    return 0
-
-
-def cmd_accompany(args) -> int:
-    """Strings follow the piano (the milestone 3 test). Live, or offline from a recorded take."""
-    score = Score(args.score)
-    leadership = None
-    if args.lead == "score":
-        from . import annotate
-
-        path = annotate.annotation_path(score.path)
-        if not path.exists():
-            print(f"No leadership annotation at {path}; run `annotate` first.", file=sys.stderr)
-            return 1
-        leadership = annotate.load(path)
-    if args.replay:
-        from . import simulate
-        from .tempo import BeatClock
-        from .sound import render_wav
-
-        events = midi_io.read_take(args.replay)
-        res = simulate.run(score, events, args.first, args.last, clock=BeatClock(spb=60 / args.tempo),
-                           leadership=leadership)
-        for k, v in simulate.summary(res).items():
-            print(f"{k:<26}{v}")
-        stem = Path(args.replay).stem
-        mid = simulate.write_midi(events, res.outs, Path("build") / f"{stem}-with-strings.mid", res.accompanist.notices)
-        wav = render_wav(mid, mid.with_suffix(".wav"))
-        print(f"wrote {mid} and {wav}")
-        if args.listen:
-            import subprocess
-            subprocess.run(["afplay", str(wav)])
-        return 0
-    from . import live
-
-    # No keyboard yet is fine: the session looks for it until it is plugged in.
-    saved = live.run(score, args.port, args.first, args.last, use_voice=not args.no_voice, leadership=leadership,
-                     tempo=args.tempo, ui=args.ui, window=not args.no_window, ipad=args.ipad)
-    if saved:
-        print(f"\nSession saved to {saved}")
+    events = midi_io.read_take(args.take)
+    res = simulate.run(score, events, args.first, args.last, clock=BeatClock(spb=60 / args.tempo))
+    for k, v in simulate.summary(res).items():
+        print(f"{k:<26}{v}")
+    out = Path(args.out) if args.out else Path("build") / f"{Path(args.take).stem}-with-strings.mid"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    print(f"wrote {simulate.write_midi(events, res.outs, out, res.accompanist.notices)}")
     return 0
 
 
@@ -179,23 +64,6 @@ def cmd_session(args) -> int:
     return 0
 
 
-def cmd_annotate(args) -> int:
-    """Draft who leads where, from the score, into a YAML file next to it."""
-    from . import annotate
-
-    score = Score(args.score)
-    path = Path(args.out) if args.out else annotate.annotation_path(score.path)
-    passages = annotate.annotate(score)
-    for p in passages:
-        bars = f"{p.first_bar}-{p.last_bar}" if p.last_bar != p.first_bar else str(p.first_bar)
-        print(f"bars {bars:<8} {p.lead:<8} coupling {p.coupling:<5} {p.reason}")
-    if path.exists() and not args.force:
-        print(f"{path} exists (it may have your edits); not overwritten. --force to replace it.")
-        return 1
-    print(f"wrote {annotate.write(score, passages, path)}")
-    return 0
-
-
 def cmd_bundle(args) -> int:
     """Pack a piece for the iPad app; with --fixtures, also the engine's golden test cases."""
     from . import bundle
@@ -219,18 +87,6 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="rehearsal")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("ports", help="list MIDI inputs").set_defaults(fn=cmd_ports)
-
-    m = sub.add_parser("monitor", help="print incoming notes with timestamps")
-    m.add_argument("--port")
-    m.add_argument("--replay", help="replay a recorded take instead of live input")
-    m.set_defaults(fn=cmd_monitor)
-
-    r = sub.add_parser("record", help="record a take from the piano to a .mid file")
-    r.add_argument("out")
-    r.add_argument("--port")
-    r.set_defaults(fn=cmd_record)
-
     b = sub.add_parser("bars", help="print score bars for each part")
     b.add_argument("--score", default=str(DEFAULT_SCORE))
     b.add_argument("--part")
@@ -238,57 +94,23 @@ def main(argv=None) -> int:
     b.add_argument("--last", type=int, default=8)
     b.set_defaults(fn=cmd_bars)
 
-    f = sub.add_parser("follow", help="follow the piano part live (or from a take) and print bar and beat")
-    f.add_argument("--score", default=str(DEFAULT_SCORE))
-    f.add_argument("--method", default="outerhmm")
-    f.add_argument("--port")
-    f.add_argument("--replay", help="a recorded take (.mid) instead of live input")
-    f.set_defaults(fn=cmd_follow)
+    si = sub.add_parser("simulate", help="the strings on a recorded take (.mid), offline: timing and a MIDI file")
+    si.add_argument("take")
+    si.add_argument("--score", default=str(DEFAULT_SCORE))
+    si.add_argument("--first", type=int, default=1)
+    si.add_argument("--last", type=int, default=16)
+    si.add_argument("--tempo", type=float, default=63.0, help="starting tempo (quarter notes per minute)")
+    si.add_argument("--out", help="the MIDI file: piano and strings (default: build/<take>-with-strings.mid)")
+    si.set_defaults(fn=cmd_simulate)
 
-    e = sub.add_parser("evaluate", help="measure follower accuracy on synthetic takes, or on recorded takes with --takes")
-    e.add_argument("--score", default=str(DEFAULT_SCORE))
-    e.add_argument("--method", default="outerhmm")
-    e.add_argument("--first", type=int, default=1)
-    e.add_argument("--last", type=int, default=16)
-    e.add_argument("--takes", help="folder of recorded .mid takes to score instead of synthetic ones")
-    e.add_argument("--no-log", action="store_true")
-    e.set_defaults(fn=cmd_evaluate)
-
-    a = sub.add_parser("accompany", help="strings follow the piano, live (or offline from a take with --replay)")
-    a.add_argument("--score", default=str(DEFAULT_SCORE))
-    a.add_argument("--port")
-    a.add_argument("--first", type=int, default=1)
-    a.add_argument("--last", type=int, default=16)
-    a.add_argument("--replay", help="a recorded take (.mid): simulate offline, print timing, render audio")
-    a.add_argument("--listen", action="store_true", help="with --replay, play the rendered audio")
-    a.add_argument("--no-voice", action="store_true", help="live: no microphone; type cues instead")
-    a.add_argument("--ui", choices=["app", "plain"], default="app",
-                   help="live: app = a window (press S in it for the music-stand view); plain = lines printed as things happen")
-    a.add_argument("--no-window", action="store_true", help="with --ui app: don't open the window, just print its address")
-    a.add_argument("--ipad", action="store_true",
-                   help="with --ui app: also serve the score view to the iPad over Wi-Fi (anyone on the network can open it)")
-    a.add_argument("--lead", choices=["piano", "score"], default="piano",
-                   help="piano: the strings always follow you (milestone 3-4). score: who leads changes by passage, "
-                        "from <score>.lead.yaml (milestone 5)")
-    a.add_argument("--tempo", type=float, default=63.0,
-                   help="starting tempo (quarter notes per minute); with --lead score also the strings' own tempo "
-                        "until a piano-led passage sets another")
-    a.set_defaults(fn=cmd_accompany)
-
-    se = sub.add_parser("session", help="timing of a saved live session (build/sessions/*.mid)")
+    se = sub.add_parser("session", help="timing of a saved session (a MIDI file from the iPad's Sessions folder)")
     se.add_argument("path")
     se.add_argument("--score", default=str(DEFAULT_SCORE))
     se.add_argument("--first", type=int, default=1)
     se.add_argument("--last", type=int, default=16)
     se.set_defaults(fn=cmd_session)
 
-    an = sub.add_parser("annotate", help="draft who leads where (piano, shared, strings) into <score>.lead.yaml")
-    an.add_argument("--score", default=str(DEFAULT_SCORE))
-    an.add_argument("--out", help="default: next to the score, <score>.lead.yaml")
-    an.add_argument("--force", action="store_true", help="overwrite an existing annotation")
-    an.set_defaults(fn=cmd_annotate)
-
-    bu = sub.add_parser("bundle", help="pack a piece for the iPad app (score, engraving, leadership)")
+    bu = sub.add_parser("bundle", help="pack a piece for the iPad app; also the test fixtures")
     bu.add_argument("--score", default=str(DEFAULT_SCORE))
     bu.add_argument("--out", default="ios/Bundles/schumann-op47-iii")
     bu.add_argument("--fixtures", help="also write the engine's golden test cases here (from takes/ and --sessions)")

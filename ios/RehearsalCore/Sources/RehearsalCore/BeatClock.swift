@@ -4,9 +4,7 @@
 //
 // The clock is corrected at each piano onset with linear phase and period correction, as in the
 // ensemble-timing literature: phase moves a fraction `alpha` of the way to the pianist, period a fraction
-// `beta`. With alpha near 1 the strings follow tightly (piano leads); smaller alpha keeps more of their
-// own timing (strings-lead coupling). Where the strings lead, the period is also pulled a fraction `pull`
-// back towards their own tempo (`homeSpb`), so they keep it rather than drift to the pianist's.
+// `beta`. With alpha near 1 the strings follow tightly; smaller alpha would keep more of their own timing.
 
 public struct BeatClock: Sendable {
     public var spb: Double  // seconds per beat (quarter note)
@@ -34,22 +32,15 @@ public struct BeatClock: Sendable {
     public func timeOf(_ beat: Double) -> Double { t0 + (beat - b0) * spb }
 
     /// The pianist played `beat` at time `t`. Returns the asynchrony (seconds, positive = pianist late).
-    /// `alpha` and `beta` override the clock's own for this correction.
     @discardableResult
-    public mutating func correct(_ t: Double, _ beat: Double, prevBeat: Double?, alpha: Double? = nil,
-                                 beta: Double? = nil, homeSpb: Double? = nil, pull: Double = 0.0) -> Double {
-        let alpha = alpha ?? self.alpha
-        let beta = beta ?? self.beta
+    public mutating func correct(_ t: Double, _ beat: Double, prevBeat: Double?) -> Double {
         let predicted = timeOf(beat)
         let asyn = t - predicted
         // Re-anchor at this beat: phase moves alpha of the way towards the pianist.
         anchor(predicted + alpha * asyn, beat)
         if let prev = prevBeat, beat > prev {
-            // Period correction, per beat of the interval just played, plus the pull home.
-            var step = beta * asyn / (beat - prev)
-            if let home = homeSpb {
-                step += pull * (home - spb)
-            }
+            // Period correction, per beat of the interval just played.
+            let step = beta * asyn / (beat - prev)
             let limit = maxPeriodStep * spb
             spb = min(maxSpb, max(minSpb, spb + min(limit, max(-limit, step))))
         }

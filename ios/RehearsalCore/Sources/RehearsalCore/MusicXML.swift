@@ -1,11 +1,11 @@
 import Foundation
 
-// A MusicXML score read on the iPad, so a piece can be added without the Mac: what rehearsal/score.py gets from
-// partitura (each part's notes in quarter-note beats with ties joined and repeats played out, the bars in playing
+// A MusicXML score read on the iPad, so a piece can be added without the Mac: what rehearsal/musicxml.py reads on
+// the Mac (each part's notes in quarter-note beats with ties joined and repeats played out, the bars in playing
 // order) and the dynamics rehearsal/dynamics.py reads (marked levels, wedges, "cresc." and "dim." in words).
 // Checked against the Mac's own reading of the same files: `swift run --package-path ios/RehearsalCore import-check`.
 //
-// Read as partitura reads it: a direction sits where it is written among the notes (its <offset> is ignored); a
+// As on the Mac (and as partitura, which the Mac used before): a direction sits where it is written among the notes (its <offset> is ignored); a
 // grace note starts with the note it ornaments and lasts nothing; a short first bar is a pickup, so the first
 // full bar starts at beat 0; every repeat is taken, with first and second endings (D.C. and D.S. are not followed).
 

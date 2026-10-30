@@ -13,47 +13,37 @@ Running log of decisions and tuning. See `HANDOFF.md` for the vision and milesto
 
 ## Commands
 
-All via `uv run python -m rehearsal.cli <cmd>`:
+All via `uv run rehearsal <cmd>` (before 2026-10-30, `uv run python -m rehearsal.cli <cmd>`):
 
 | Command | What it does |
 | --- | --- |
-| `ports` | list MIDI inputs |
-| `monitor` | print incoming notes with timestamps (M1 scale test); `--replay take.mid` to replay |
-| `record out.mid` | record a take from the piano (Ctrl-C to save) |
-| `bars --first 1 --last 8 [--part Piano]` | print score bars per part (M1 score test) |
-| `follow` | follow the piano part live, print bar and beat (M2 live test); `--replay take.mid` for a file |
-| `evaluate --first 1 --last 16 [--method M]` | accuracy on synthetic takes; appends to `build/eval.jsonl` |
-| `evaluate --takes takes [--first --last]` | accuracy on recorded takes against a reference alignment (`rehearsal/reference.py`) |
-| `accompany [--first 1 --last 16]` | strings follow the piano live (M3 test); prints each matched chord, tempo and your timing vs the strings; saves the session (piano + strings) to `build/sessions/` |
-| `accompany` (UI, default `--ui app`) | opens the rehearsal window (Chrome in app mode, else the browser): state, bar and beat, tempo by bar, strings vs you on the last 8 chords, a 6-bar score strip with a moving playhead (click a bar to start there while stopped), From the top / Again / End session, the last few events; while stopped, what the cue will do. **S** (or the Stand view button) switches to the music-stand view: huge bar number, beat dots, tempo, Together / Behind / Ahead; Esc returns. `--no-window` prints the address instead |
-| `accompany --ui plain` | prints line by line instead of the window |
-| `accompany --ipad` | also serves the score view to the iPad over Wi-Fi and prints its address (`http://<mac>.local:8765/ipad`): the score engraved by Verovio from the same MusicXML, the current bar highlighted with a playhead, scrolled a system at a time (the system you are in moves to the top, the next stays in view below), tap a bar while stopped to start there, Again / From the top. Without `--ipad` the server only listens on the Mac itself |
-| `bundle [--fixtures ios/Fixtures]` | packs the piece for the iPad app into `ios/Bundles/<piece>/` (score.json: bars and notes in beats, leadership; engraving.svg; anchors.json); `--fixtures` also writes the engine's golden cases: the takes and two live sessions run through the Python accompanist without the follower |
-| `accompany` (M4) | while the strings wait, say "from bar 9", "from measure 9", "from the pickup to bar 9", "from the top", "again"; or type `9`, `pickup 9`, `top`, `again` + Enter. `--no-voice` turns the microphone off |
-| `session build/sessions/X.mid` | timing of a saved live session, per pass (split wherever the strings fell silent ≥ 0.5 s, each aligned on its own), with what the strings said (stored as MIDI markers since 2026-10-26); worst notes |
-| `annotate [--score S] [--force]` | draft who leads where (piano / shared / strings, with a coupling and a reason per passage) into `<score>.lead.yaml`; won't overwrite your edits without `--force` |
-| `accompany --lead score [--tempo 63]` | M5: who leads changes by passage, from `<score>.lead.yaml`; `--tempo` is the starting tempo and the strings' own tempo until a piano-led passage sets another. A notice prints at each change of passage. `--lead piano` (default) = the strings always follow you |
-| `accompany --replay take.mid [--listen]` | the same offline on a recorded take: timing stats, plus `build/<take>-with-strings.mid/.wav` |
+| `bars --first 1 --last 8 [--part Piano]` | print score bars per part |
+| `simulate take.mid [--first 1 --last 16 --tempo 63]` | the strings on a recorded take, offline (as the iPad plays): timing stats, and `build/<take>-with-strings.mid` |
+| `session X.mid` | timing of a saved session (the iPad's Sessions folder), per pass (split wherever the strings fell silent ≥ 0.5 s, each aligned on its own), with what the strings said (MIDI markers); worst notes |
+| `bundle [--fixtures ios/Fixtures] [--import-fixtures ios/ImportFixtures]` | packs the piece for the iPad app into `ios/Bundles/<piece>/` (score.json, score.musicxml); `--fixtures` also writes the engine's golden cases (the takes in `takes/`, which is local only, and saved sessions in `build/sessions/`); `--import-fixtures` what the iPad's MusicXML import must read |
 
-Tests: `uv run pytest`.
+Tests: `uv run pytest`; `swift run --package-path ios/RehearsalCore fixture-check`; `swift run --package-path ios/RehearsalCore import-check`.
+
+Retired 2026-10-30 (still in the git history): rehearsing on the Mac (`accompany`: FluidSynth strings, Vosk voice cues, the Mac window and the Wi-Fi score page), the MIDI port tools (`ports`, `monitor`, `record`), the Matchmaker follower (`follow`, `evaluate`), and leadership by passage (`annotate`, `accompany --lead score`). The iPad app replaced the first; the follower changed nothing on the takes (the app never had it); score-led timing lost the A/B test (M5 below). partitura went with them: `musicxml.py` reads the scores.
 
 ## Layout
 
-- `rehearsal/score.py`: partitura wrapper. Notes with bar and beat-in-bar, repeats unfolded, `bar_at(beat)`, `export_part()`.
-- `rehearsal/midi_io.py`: `MidiEvent`, live input (timestamps taken in the rtmidi callback), take read/write, replay.
-- `rehearsal/follower.py`: `Follower` protocol and `MatchmakerFollower`. Matchmaker is only imported here.
+- `rehearsal/musicxml.py`: MusicXML reading, the same as the iPad's (`ios/RehearsalCore/.../MusicXML.swift`).
+- `rehearsal/score.py`: notes with bar and beat-in-bar, repeats unfolded, `bar_at(beat)`.
+- `rehearsal/midi_io.py`: `MidiEvent`, take read/write, replay; the session file's channel layout.
 - `rehearsal/synth.py`: synthetic piano takes from the score with ground truth (rubato, jitter, wrong/dropped/extra notes).
-- `rehearsal/evaluate.py`: scores the follower's alignment path against the ground truth.
 - `rehearsal/reference.py`: offline ground truth for real takes: performed notes grouped into chords (50 ms gap), chord sequence aligned to score onset groups by edit distance on pitch sets.
 - `rehearsal/tempo.py`: `BeatClock`, the tempo and position model: linear phase (`alpha`) and period (`beta`) correction at each piano chord.
-- `rehearsal/accompanist.py`: `Accompanist`, event-driven and clock-agnostic (same code live and offline). Matches piano chords to the score, corrects the clock, schedules string notes ahead of predicted beats, pauses when the pianist stops.
-- `rehearsal/sound.py`: `SoundEngine` protocol, `FluidSynthEngine` (Core Audio, 64 frames x 8 periods ≈ 10.7 ms), `render_wav()` via the fluidsynth CLI.
-- `rehearsal/simulate.py`: replays a take through follower + accompanist in 1 ms virtual steps; timing vs the reference alignment; writes piano + strings MIDI.
-- `rehearsal/session.py`: analysis of saved live sessions (piano aligned with `reference.align`; each string note assigned to the nearest same-pitch score note in expected time).
-- `rehearsal/voice.py`: voice cues: Vosk recogniser constrained to a grammar of rehearsal phrases, `parse()` to a `Cue`, microphone `Listener` (only fed while the strings wait).
-- `rehearsal/live.py`: the live loop: MIDI callback, follower thread, 1 ms scheduler poll.
-- `takes/`: recorded takes from the FP-30 (bars 1–16: clean, rubato, mistakes).
-- `scores/`: the four score files copied from Downloads. `build/` is scratch (piano-only MusicXML, eval log).
+- `rehearsal/accompanist.py`: `Accompanist`, event-driven and clock-agnostic. Matches piano chords to the score, corrects the clock, schedules string notes ahead of predicted beats, pauses when the pianist stops.
+- `rehearsal/dynamics.py`: the strings' loudness from the score's markings, phrasing and swells.
+- `rehearsal/simulate.py`: replays a take through the accompanist in 1 ms virtual steps; timing vs the reference alignment; writes piano + strings MIDI.
+- `rehearsal/session.py`: analysis of saved sessions (piano aligned with `reference.align`; each string note assigned to the nearest same-pitch score note in expected time).
+- `rehearsal/voice.py`: voice cues: `Cue`, and `parse()` from words.
+- `rehearsal/bundle.py`: the iPad's piece folder and the test fixtures.
+- `rehearsal/sf2strings.py`: cuts `ios/Sounds/strings.sf2` from MuseScore's SoundFont.
+- `ios/`: the app (`App/`), the engine in Swift (`RehearsalCore/`), the score page and Verovio (`Web/`), fixtures, the built-in piece.
+- `tone/`: the listening tests for the strings' sound (`tone/README.md`).
+- `takes/` (local only, gitignored): recorded takes from the FP-30 (bars 1–16: clean, rubato, mistakes). `scores/`: the score files. `build/` is scratch.
 
 ## Decisions
 
@@ -154,6 +144,7 @@ Tests: `uv run pytest`.
    - Library colours (your pick, B "spine", from https://claude.ai/artifact/F4mQqMrrb78XrQKmQtPfMU): each work gets a colour from eight deep, muted ones (claret, forest, plum, umber, slate, mulberry, moss, pine; none near the state blue or amber), the least used, in that order, when it first appears, kept in UserDefaults ("workColors"); a long press on the work changes it. It's the spine of its cards and its composer's name; the Continue card is faintly tinted with it; "Pieces" is set in the serif.
    - README screenshot (2026-10-30): `docs/screenshots.png`, the library and the rehearse screen from the Simulator (iPad Pro 13-inch, status bar set to 9:41; REHEARSAL_KEYBOARD=<name> stands in for a connected piano in silent mode).
    - Repository: README.md added (what it is, install, adding a piece, rehearsing, the Mac tools and checks, credits). Your takes (`takes/`) are no longer tracked (in .gitignore; still in the history, so a public repo would need a fresh history or a rewrite). The Schumann transcriptions in scores/ (and the built-in piece made from one) are from musescore.com: check their licence before publishing, or leave pieces for users to add.
+   - Public-repo prep (2026-10-30): README credits filled in (the SoundFont's authors, Matchmaker, FluidSynth, the Python libraries, tone/'s sources). Mac side cleaned up (you agreed): see "Retired 2026-10-30" under Commands. Python deps now mido, numpy, PyYAML (.venv 595 MB to 74 MB); `uv run rehearsal <cmd>`. The engine's leadership coupling and follower drift check went from both engines (no fixture changed apart from dropping `rubato-1-lead` and the `leadership` keys). The score page moved to `ios/Web/score.html` (was `rehearsal/web/ipad.html`) and lost its Safari half (header, toast, server-sent events, the Mac's engraving fallback); the app's legacy engraving.svg/anchors.json bundle support went too. Found on the way: the page had two `render` functions, so each state update from the app called the Verovio one (and threw, harmlessly); gone with the header. NOTES.md and HANDOFF.md moved to docs/. Still open before going public: the Schumann transcription's licence (musescore.com/user/1958691/scores/7191924 for movement III; the full quartet is /user/37403731/scores/10195096), the project's licence, a history rewrite if the score must go.
    - Voice cues and saving sessions, built 2026-10-29: `Voice.swift` (Apple's on-device speech recognition, open dictation searched for the last cue; "again"/"from the top" act at once, a bar cue after 0.6 s without new words, since "from bar one" may still become "nineteen"; digits and words; only listened to while the strings wait; the chip says "Waiting · listening", the toast shows the words heard). `Recording.swift` writes each session as a MIDI file in the layout of `simulate.write_midi` (checked: `session.read` reads it), to Documents/Sessions (Files › On My iPad › Rehearsal); saved whenever the strings stop and when the app goes to the background, and coming back starts a new file. The audio session is now play-and-record (`AudioSetup.swift`).
    - Needs Xcode (not installed yet: only the Command Line Tools, so no XCTest; the engine's checks run as `swift run --package-path ios/RehearsalCore fixture-check`) and an Apple ID in Xcode; the iPad in Developer Mode. A free Apple ID works, but apps installed that way stop opening after 7 days until rebuilt; the paid program ($99/year) avoids that.
 3. Product design for several pieces (2026-10-28, brainstorm only, nothing built): three directions on https://claude.ai/artifact/7uCaj2VfDshBtV5cXWR7Ew. A Programme (concert-programme serif, brass, one large rehearse screen that is also the stand view), B Pencil (light, score-like: boxed rehearsal numbers, red-pencil playhead, whole-movement bar ribbon), C Ensemble (the players as coloured seats, a 'who has the melody' timeline). Awaiting your pick and mix.

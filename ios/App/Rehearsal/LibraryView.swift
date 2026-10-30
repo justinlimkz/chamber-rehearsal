@@ -142,14 +142,10 @@ struct LibraryView: View {
 
     /// The bars you'll continue from, the first of them shaded.
     private func continuePreview(_ piece: Piece, _ last: LastVisit) -> some View {
-        Group {
-            if piece.engravable {
-                ScorePreview(piece: piece, first: last.bar, mark: last.bar)
-                    .padding(8)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(.white))
-                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Paper.line))
-            }
-        }
+        ScorePreview(piece: piece, first: last.bar, mark: last.bar)
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 12).fill(.white))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Paper.line))
     }
 
     private func continueText(_ piece: Piece, _ last: LastVisit) -> some View {
@@ -246,9 +242,7 @@ struct AddPieceView: View {
                     }
                     .padding(.vertical, 6)
                 }
-                if piece.engravable {
-                    Section { ScorePreview(piece: piece, first: 1).padding(.vertical, 6) }
-                }
+                Section { ScorePreview(piece: piece, first: 1).padding(.vertical, 6) }
                 Section {
                     LabeledContent("You play", value: "Piano")
                     LabeledContent("The strings play", value: piece.strings.map { $0 == "Violoncello" ? "Cello" : $0 }.joined(separator: ", "))
