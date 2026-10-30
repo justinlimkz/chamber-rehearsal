@@ -41,8 +41,10 @@ final class Strings: @unchecked Sendable {
         var darkDB: Float = -6  // 0: no shelf
         var shelfHz: Float = 2000
         // Each part's own colour, whatever it plays: a fixed treble shelf (dB at `colorHz` and up) and a lift in the
-        // body (dB around `bodyHz`). MS Basic's violin sounds harsh and thin next to the others (you, 2026-10-30).
-        var color: [String: (treble: Float, body: Float)] = [:]
+        // body (dB around `bodyHz`). MS Basic's violin sounds harsh and thin next to the others (you, 2026-10-30):
+        // its treble 6 dB down won round r9 on every clip; 3 dB more body tied with it (won the violin alone, lost
+        // the trio at forte), so it's left out.
+        var color: [String: (treble: Float, body: Float)] = ["Violin": (-6, 0)]
         var colorHz: Float = 2500
         var bodyHz: Float = 450
         var lag: [String: Double] = ["Viola": 0.012, "Violoncello": 0.006]  // seconds
