@@ -106,13 +106,22 @@ expected results:
 
 ## Credits and licences
 
-- Strings: [MS Basic](https://github.com/musescore/MuseScore) SoundFont by MuseScore, MIT licence
-  (`ios/Sounds/LICENSE-MS-Basic.md`).
+- Strings: the violin, viola and cello of MuseScore's [MS Basic](https://github.com/musescore/MuseScore)
+  SoundFont (MuseScore_General, by S. Christian Collins), which builds on FluidR3Mono by Michael Cowgill and Fluid
+  (R3) by Frank Wen. MIT licence; the notices are in `ios/Sounds/LICENSE-MS-Basic.md`. On the Mac the strings
+  play from the full SoundFont as MuseScore Studio installs it.
 - Score engraving: [Verovio](https://www.verovio.org), LGPL-3.0-or-later, loaded unmodified as a separate file
-  (`ios/Web/README.md`).
+  (`ios/Web/README.md`). The Mac uses its Python package.
 - Score reading on the Mac: [partitura](https://github.com/CPJKU/partitura), Apache 2.0.
+- Score following on the Mac: [Matchmaker](https://github.com/pymatchmaker/matchmaker) (`pymatchmaker`),
+  Apache 2.0.
+- Sound on the Mac: [FluidSynth](https://www.fluidsynth.org), LGPL-2.1-or-later, through pyfluidsynth (MIT).
+- MIDI, audio and settings on the Mac: mido, python-rtmidi, sounddevice and PyYAML, all MIT.
 - Speech on the Mac: [Vosk](https://alphacephei.com/vosk/), Apache 2.0. The model is downloaded into `models/`
   and isn't part of the repository. The iPad uses Apple's on-device speech recognition.
+- The listening tests in `tone/` download their reference recordings and samples when run; none are part of the
+  repository. They come from the University of Iowa Musical Instrument Samples, VSCO-2 Community Edition (CC0),
+  Karoryfer's Big Cat cello (CC0) and Wikimedia Commons (CC0, public domain, CC BY or CC BY-SA, recorded per file).
 - The Schumann score in `scores/` is a transcription from musescore.com. Check its licence before redistributing
   it.
 
