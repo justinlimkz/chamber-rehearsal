@@ -42,6 +42,9 @@ if let v = opts["mix"] { style.reverbMix = Float(v)! }
 if opts["seat"] == "0" { style.seating = [:] }
 if let v = opts["dark"] { style.darkDB = Float(v)! }
 if opts["lag"] == "0" { style.lag = [:] }
+if let v = opts["color"] {  // Part:treble:body,...
+    for c in v.split(separator: ",") { let f = c.split(separator: ":"); style.color[String(f[0])] = (Float(f[1])!, Float(f[2])!) }
+}
 if let v = opts["handover"] { style.handoverS = v == "off" ? nil : Double(v)! }
 
 let rows = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(fileURLWithPath: a[3]))) as! [[Any]]

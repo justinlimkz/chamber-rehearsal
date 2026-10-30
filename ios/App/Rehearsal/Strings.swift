@@ -40,6 +40,11 @@ final class Strings: @unchecked Sendable {
         var seating: [String: Float] = ["Violin": -0.7, "Viola": 0.2, "Violoncello": 0.65]  // pan, -1 left ... 1 right
         var darkDB: Float = -6  // 0: no shelf
         var shelfHz: Float = 2000
+        // Each part's own colour, whatever it plays: a fixed treble shelf (dB at `colorHz` and up) and a lift in the
+        // body (dB around `bodyHz`). MS Basic's violin sounds harsh and thin next to the others (you, 2026-10-30).
+        var color: [String: (treble: Float, body: Float)] = [:]
+        var colorHz: Float = 2500
+        var bodyHz: Float = 450
         var lag: [String: Double] = ["Viola": 0.012, "Violoncello": 0.006]  // seconds
     }
 
@@ -88,16 +93,20 @@ final class Strings: @unchecked Sendable {
             let mix = AVAudioMixerNode()
             engine.attach(mix)
             var shelf: AVAudioUnitEQ? = nil
-            if style.darkDB != 0 {  // samplers -> part mixer -> shelf -> bus
-                let eq = AVAudioUnitEQ(numberOfBands: 1)
-                eq.bands[0].filterType = .highShelf
-                eq.bands[0].frequency = style.shelfHz
-                eq.bands[0].bypass = false
-                eq.bands[0].gain = style.darkDB
+            let color = style.color[part]
+            if style.darkDB != 0 || color != nil {  // samplers -> part mixer -> EQ -> bus
+                let eq = AVAudioUnitEQ(numberOfBands: 3)
+                let bands: [(AVAudioUnitEQFilterType, Float, Float)] = [  // the opening shelf, then the colour
+                    (.highShelf, style.shelfHz, style.darkDB), (.highShelf, style.colorHz, color?.treble ?? 0),
+                    (.parametric, style.bodyHz, color?.body ?? 0)]
+                for (b, (type, hz, db)) in zip(eq.bands, bands) {
+                    b.filterType = type; b.frequency = hz; b.gain = db; b.bypass = db == 0
+                    if type == .parametric { b.bandwidth = 1.5 }  // octaves
+                }
                 engine.attach(eq)
                 engine.connect(mix, to: eq, format: nil)
                 engine.connect(eq, to: bus, format: nil)
-                shelf = eq
+                if style.darkDB != 0 { shelf = eq }
             } else {
                 engine.connect(mix, to: bus, format: nil)
             }

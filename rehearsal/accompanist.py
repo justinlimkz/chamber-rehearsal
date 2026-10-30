@@ -131,10 +131,7 @@ class Accompanist:
         self.faded: dict[str, int] = {}  # current expression of parts being faded
         self.dyn: dict[str, int] = {}  # per part, the expression the dynamics ask for (127 if not set)
         self.expr: dict[str, int] = {}  # per part, the expression last sent: dynamics times fade (127 if not sent)
-        # per part, the velocity of its notes (the sample layer): set as a phrase starts, and moved up (never down)
-        # as it gets louder, at a note that starts alone. Down would raise the expression on the old note's tail,
-        # a burst (round r7); keeping one layer for the phrase lost the louder layers' colour in crescendos.
-        self.layer: dict[str, int] = {}
+        self.layer: dict[str, int] = {}  # per part, the velocity of its notes (the sample layer), set as a phrase starts
         # per part, the onset of its last note and the written end of its phrase so far: a phrase starts after a
         # written rest (not the gap LEGATO leaves between joined notes) or when the strings go back
         self.phrase: dict[str, tuple[float, float]] = {}
@@ -276,12 +273,9 @@ class Accompanist:
             velocity = n.velocity
             if self.levels:
                 last, end = self.phrase.get(n.part, (math.inf, -math.inf))
-                want = dynamics.layer_velocity(dynamics.level_at(self.levels[n.part], n.onset_beat))
                 if n.onset_beat < last or n.onset_beat - end >= dynamics.EXPRESSION.phrase_gap:  # a phrase starts
-                    self.layer[n.part] = want
+                    self.layer[n.part] = dynamics.layer_velocity(dynamics.level_at(self.levels[n.part], n.onset_beat))
                     end = -math.inf
-                elif not any(m.part == n.part for _, m in self.sounding):
-                    self.layer[n.part] = max(self.layer[n.part], want)
                 self.phrase[n.part] = (n.onset_beat, max(end, n.onset_beat + n.duration_beat))
                 velocity = self.layer[n.part]
                 self._dynamics(t_on, n.part, n.onset_beat, out)

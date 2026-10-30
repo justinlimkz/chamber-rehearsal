@@ -80,6 +80,22 @@ CANDIDATES: dict[str, dict] = {
         "app_size": "4.2 MB (no change)",
         "realtime": REALTIME_SAMPLER,
     },
+    "violin-soft": {
+        "font": lambda: APP_FONT,
+        "style": {"color": "Violin:-6:0"},
+        "description": "As `joined-0` (round 8's winner, the app), the violin's treble 6 dB down from 2.5 kHz at every dynamic (you found the violin harsh and tinny, 2026-10-30).",
+        "licence": "MIT (as current)",
+        "app_size": "4.2 MB (no change)",
+        "realtime": REALTIME_SAMPLER,
+    },
+    "violin-warm": {
+        "font": lambda: APP_FONT,
+        "style": {"color": "Violin:-6:3"},
+        "description": "As `violin-soft`, plus 3 dB more body around 450 Hz (1.5 octaves wide).",
+        "licence": "MIT (as current)",
+        "app_size": "4.2 MB (no change)",
+        "realtime": REALTIME_SAMPLER,
+    },
     "ratchet": {
         "font": lambda: APP_FONT,
         "description": "Round 7's split verdict combined: `joined-0`'s note changes (the held-over note ends as the next starts), and a sample layer set as a phrase starts and moved up, never down, at a note that starts alone as the music gets louder (so the cello's theme and the crescendo of bars 66-69 reach the loud layers again, as in round 6, without the downward switches that made the burst).",

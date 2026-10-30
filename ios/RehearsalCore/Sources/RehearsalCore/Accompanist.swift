@@ -141,10 +141,7 @@ public final class Accompanist {
     var faded: [(part: String, level: Int)] = []
     var dyn: [String: Int] = [:]  // per part, the expression the dynamics ask for (127 if not set)
     var expr: [String: Int] = [:]  // per part, the expression last sent: dynamics times fade (127 if not sent)
-    // per part, the velocity of its notes (the sample layer): set as a phrase starts, and moved up (never down)
-    // as it gets louder, at a note that starts alone. Down would raise the expression on the old note's tail,
-    // a burst (round r7); keeping one layer for the phrase lost the louder layers' colour in crescendos.
-    var layer: [String: Int] = [:]
+    var layer: [String: Int] = [:]  // per part, the velocity of its notes (the sample layer), set as a phrase starts
     // per part, the onset of its last note and the written end of its phrase so far: a phrase starts after a
     // written rest (not the gap LEGATO leaves between joined notes) or when the strings go back
     var phrase: [String: (last: Double, end: Double)] = [:]
@@ -340,12 +337,9 @@ public final class Accompanist {
             var velocity = n.velocity
             if let levels {
                 var (last, end) = phrase[n.part] ?? (.infinity, -.infinity)
-                let want = layerVelocity(levelAt(levels[n.part] ?? [], n.onsetBeat))
                 if n.onsetBeat < last || n.onsetBeat - end >= PHRASE_GAP {  // a phrase starts
-                    layer[n.part] = want
+                    layer[n.part] = layerVelocity(levelAt(levels[n.part] ?? [], n.onsetBeat))
                     end = -.infinity
-                } else if !sounding.contains(where: { $0.note.part == n.part }) {
-                    layer[n.part] = max(layer[n.part]!, want)
                 }
                 phrase[n.part] = (n.onsetBeat, max(end, n.onsetBeat + n.durationBeat))
                 velocity = layer[n.part]!
