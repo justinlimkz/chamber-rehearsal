@@ -9,7 +9,7 @@ import numpy as np
 from . import musicxml
 
 SCORE_DIR = Path(__file__).resolve().parent.parent / "scores"
-DEFAULT_SCORE = SCORE_DIR / "piano-quartet-op47-3rd-mov-robert-schumann.mxl"
+DEFAULT_SCORE = SCORE_DIR / "schumann-op47-iii.mxl"
 NOTE_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 
 

@@ -2,6 +2,7 @@
 name = "chamber-rehearsal"
 version = "0.1.0"
 description = "A string trio that follows you at the piano: the engine's reference, and tools for the iPad app"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "mido>=1.3.3",

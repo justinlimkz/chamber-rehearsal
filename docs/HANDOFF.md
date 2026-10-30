@@ -34,7 +34,7 @@ First piece: Schumann, Piano Quartet in E-flat major, Op. 47, III. Andante canta
 
 Later candidates: Mozart Piano Quartet K. 493, II. Larghetto; Brahms Piano Quartet No. 3, Op. 60, III. Andante (stretch goal).
 
-Score plan:
+Score plan (2026-10-30: the primary transcription below turned out to be "all rights reserved", so it was replaced by movement III of the CC0 second transcription; see `scores/README.md`):
 
 1. **Primary score:** `piano-quartet-op47-3rd-mov-robert-schumann.mxl` (movement III only, MuseScore 3.6.2 export), from [this transcription](https://musescore.com/user/1958691/scores/7191924). The `.mscz` source sits beside it for corrections in MuseScore Studio.
 2. **Checked so far:** 132 bars; parts Violin, Viola, Violoncello, Piano (two staves); 3/4, 4/4 from bar 48, 3/4 from bar 73; B-flat major, G-flat major middle section from bar 48; one tempo mark, quarter = 63. Loads cleanly in partitura. Three-bar introduction, then the cello's rising-seventh melody from bar 4. Cello retuning note at bar 76, with the cello resting bars 76–90.

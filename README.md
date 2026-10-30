@@ -120,7 +120,10 @@ are kept out of the repository, so this works only where they are).
   repository. They come from the University of Iowa Musical Instrument Samples, VSCO-2 Community Edition (CC0),
   Karoryfer's Big Cat cello (CC0) and Wikimedia Commons (CC0, public domain, CC BY or CC BY-SA, recorded per file).
   Some of them use FluidSynth (LGPL-2.1), Demucs (MIT) and Google's DDSP (Apache 2.0), installed separately.
-- The Schumann score in `scores/` is a transcription from musescore.com. Check its licence before redistributing
-  it.
+- The Schumann score: a transcription of the whole quartet on MuseScore by user 37403731
+  ([score](https://musescore.com/user/37403731/scores/10195096)), CC0. Movement III is cut from it
+  (`scores/README.md`).
 
-This project's own licence hasn't been chosen yet.
+## Licence
+
+MIT (`LICENSE`), for this project's own code. The parts listed above keep their own licences.
