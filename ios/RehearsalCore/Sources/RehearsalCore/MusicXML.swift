@@ -83,6 +83,7 @@ public struct MusicXMLScore: Sendable {
     public var work: String?
     public var movement: String?
     public var composer: String
+    public var tempo: Double?  // quarter notes a minute at the start, from the first part's first <sound tempo>
     public var parts: [MusicXMLPart]
 
     /// The MusicXML text of `data`: a .musicxml/.xml file as it is, or the score inside a compressed .mxl.
@@ -96,6 +97,12 @@ public struct MusicXMLScore: Sendable {
         guard let name = zip.names.first(where: { !$0.hasPrefix("META-INF") && ($0.hasSuffix(".xml") || $0.hasSuffix(".musicxml")) }),
               let d = zip.file(name) else { throw MusicXMLError.unreadable("no score in the .mxl") }
         return d
+    }
+
+    static func firstTempo(_ node: XMLNode) -> Double? {
+        if node.name == "sound", let t = node.attrs["tempo"].flatMap(Double.init), t > 0 { return t }
+        for c in node.children { if let t = firstTempo(c) { return t } }
+        return nil
     }
 
     public init(data: Data) throws {
@@ -118,6 +125,7 @@ public struct MusicXMLScore: Sendable {
         }
         let partNodes = root.all("part")
         guard !partNodes.isEmpty else { throw MusicXMLError.noParts }
+        tempo = Self.firstTempo(partNodes[0])
         let order = Self.playingOrder(partNodes)
         parts = partNodes.map { node in
             let id = node.attrs["id"] ?? ""

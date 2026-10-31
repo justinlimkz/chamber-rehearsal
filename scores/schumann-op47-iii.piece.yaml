@@ -1,4 +1,7 @@
 # How the piece is listed in the iPad app's library (`rehearsal bundle`). Without this file the library
 # uses the MusicXML's title as the work and leaves the movement blank.
+# tempo: quarter notes a minute for the strings' first notes (the score's first metronome mark if not
+# given here, else 63). The transcription marks 74; 63 is the tempo it's been rehearsed at.
 work: Piano Quartet in E-flat major, Op. 47
 movement: III. Andante cantabile
+tempo: 63

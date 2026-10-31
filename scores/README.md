@@ -8,7 +8,7 @@ copyright waiver (CC0).
 |---|---|
 | `piano-quartet-op47-robert-schumann.mscz`, `.mxl` | The transcription as published (all four movements). |
 | `schumann-op47-iii.mxl` | Movement III, Andante cantabile (132 bars), cut from it: the app's built-in piece and the tests' score. |
-| `schumann-op47-iii.piece.yaml` | How the library lists it. |
+| `schumann-op47-iii.piece.yaml` | How the library lists it, and the tempo the strings start at. |
 | `cut.py` | Cuts a movement out of a whole work. |
 
 Movement III was made with:
@@ -20,7 +20,8 @@ uv run python scores/cut.py scores/piano-quartet-op47-robert-schumann.mxl 578 70
 
 One correction: in bar 1 the transcription has a crescendo under the violin's chord, where the viola, cello and
 piano have the diminuendo from f to p; the violin gets the diminuendo too. The transcription's hidden tempo
-changes are left in: the app ignores them.
+changes are left in: the app ignores them, except that its first metronome mark (♩ = 74) would be the
+strings' starting tempo; the piece file sets 63 instead.
 
 ## Mozart, Piano Quartet in E-flat major, K. 493, I. Allegro
 

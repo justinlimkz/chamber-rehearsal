@@ -1,6 +1,7 @@
 """A piece packed for the iPad app on the Mac (the app makes the same from a MusicXML file itself).
 
-`<out>/score.json`: title, composer, work and movement (from `<score>.piece.yaml`, if there is one), the
+`<out>/score.json`: title, composer, work and movement and the tempo to start at (from `<score>.piece.yaml`, if
+there is one; the tempo else from the score's first metronome mark, if it has one), the
 bars (unfolded, in playing order) and every note of every part in quarter-note beats, each string part's
 loudness curve from the score's dynamics (`dynamics.py`: [beat, dB from mf] points, linear between them).
 `<out>/score.musicxml`: the score itself, which the iPad engraves with Verovio to its screen, with the parts and
@@ -30,13 +31,16 @@ def score_data(score: Score) -> dict:
     `import_fixtures`): the bars, the notes of the parts it has, and the string parts' loudness curves."""
     have = [name for name in PARTS if any(p.lower().startswith(name.lower()) for p in score.part_names)]
     strings = [name for name in have if name in STRING_PARTS]
-    return {
+    data = {
         "title": score.title,
         "composer": score.composer,
         "barStarts": [[beat, bar] for beat, bar in score.bar_starts()],
         "parts": {name: [[n.onset_beat, n.duration_beat, n.pitch] for n in score.notes(name)] for name in have},
         "dynamics": {name: [list(p) for p in pts] for name, pts in dynamics.curves(score, strings).items()},
     }
+    if score.tempo:
+        data["tempo"] = score.tempo  # quarter notes a minute for the strings' first notes
+    return data
 
 
 def import_fixtures(paths: list[Path], out: Path) -> list[Path]:
@@ -61,6 +65,8 @@ def export(score: Score, out: Path) -> Path:
         "work": meta.get("work", score.title),  # for the library: works, with their movements under them
         "movement": meta.get("movement", ""),
     }
+    if meta.get("tempo"):
+        data["tempo"] = float(meta["tempo"])
     (out / "score.json").write_text(json.dumps(data))
     (out / "score.musicxml").write_bytes(musicxml.text(score.path))  # the iPad engraves it itself
     return out

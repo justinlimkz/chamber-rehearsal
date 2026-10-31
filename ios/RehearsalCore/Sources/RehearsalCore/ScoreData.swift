@@ -15,13 +15,14 @@ public struct ScoreData: Sendable, Decodable {
     public var composer: String
     public var work: String  // for the library: the work, with its movements under it
     public var movement: String  // "" when the piece is a whole work, or not known
+    public var tempo: Double?  // quarter notes a minute for the strings' first notes, if the piece says
     /// (quarter-note position, written bar number) for every bar of the unfolded piano part, in order.
     public var barStarts: [(Double, Int)]
     /// Each string part's loudness from the score's dynamics (dynamics.curves): (beat, dB from mf) points.
     public var dynamics: [String: [(Double, Double)]]
     private var parts: [String: [ScoreNote]]
 
-    private enum CodingKeys: String, CodingKey { case title, composer, work, movement, barStarts, parts, dynamics }
+    private enum CodingKeys: String, CodingKey { case title, composer, work, movement, tempo, barStarts, parts, dynamics }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -29,6 +30,7 @@ public struct ScoreData: Sendable, Decodable {
         composer = try c.decode(String.self, forKey: .composer)
         work = try c.decodeIfPresent(String.self, forKey: .work) ?? title
         movement = try c.decodeIfPresent(String.self, forKey: .movement) ?? ""
+        tempo = try c.decodeIfPresent(Double.self, forKey: .tempo)
         var bs = try c.nestedUnkeyedContainer(forKey: .barStarts)
         var starts: [(Double, Int)] = []
         while !bs.isAtEnd {

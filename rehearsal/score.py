@@ -37,6 +37,7 @@ class Score:
         loaded = musicxml.load(self.path, unfold)
         self.title = loaded.title or self.path.stem
         self.composer = loaded.composer
+        self.tempo = loaded.tempo
         self.read_parts = loaded.parts
 
     def read(self, name: str) -> musicxml.Part:

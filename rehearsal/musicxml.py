@@ -50,6 +50,7 @@ class Score:
     movement: str | None
     composer: str
     parts: list[Part]
+    tempo: float | None = None  # quarter notes a minute at the start, from the first part's first <sound tempo>
 
 
 def text(path: Path) -> bytes:
@@ -92,7 +93,17 @@ def load(path: Path, unfold: bool = True) -> Score:
         part = Part(node.get("id", ""), info.get(node.get("id"), []))
         _read(node, order, part)
         parts.append(part)
-    return Score(movement or work or credit or "", work, movement, composer, parts)
+    return Score(movement or work or credit or "", work, movement, composer, parts, _tempo(nodes))
+
+
+def _tempo(parts) -> float | None:
+    for s in (parts[0].iter("sound") if parts else []):
+        try:
+            if float(s.get("tempo", "")) > 0:
+                return float(s.get("tempo"))
+        except ValueError:
+            pass
+    return None
 
 
 def playing_order(parts) -> list[int]:

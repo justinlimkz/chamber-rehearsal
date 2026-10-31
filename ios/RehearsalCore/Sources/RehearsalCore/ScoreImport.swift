@@ -48,7 +48,7 @@ public struct ScoreImport {
         }
         let w = work ?? score.work ?? score.title
         let m = movement ?? (score.work != nil && score.movement != score.work ? score.movement ?? "" : "")
-        return [
+        var json: [String: Any] = [
             "title": score.title,
             "composer": score.composer,
             "work": w,
@@ -57,6 +57,8 @@ public struct ScoreImport {
             "parts": parts.mapValues { $0.notes.map { [$0.onsetBeat, $0.durationBeat, $0.pitch] as [Any] } },
             "dynamics": dyn,
         ]
+        if let t = score.tempo { json["tempo"] = t }  // quarter notes a minute for the strings' first notes
+        return json
     }
 
     /// The score as the iPad engraves it: each part the app plays named as the app names it, so the Score

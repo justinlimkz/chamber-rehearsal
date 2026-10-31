@@ -1,3 +1,4 @@
 # How the piece is listed in the iPad app's library (`rehearsal bundle`).
 work: Piano Quartet in E-flat major, K. 493
 movement: I. Allegro
+tempo: 126  # quarter notes a minute for the strings' first notes; the 1879 edition has no metronome mark

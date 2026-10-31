@@ -30,13 +30,15 @@ final class Session: @unchecked Sendable {
     private let t0 = HostTime.now()
     private var running = true
 
-    init(piece: Piece, rig: Rig, tempo: Double = 63) throws {
+    /// `tempo`: the strings' first notes, in quarter notes a minute; the piece's own (its score.json) unless given,
+    /// else 63.
+    init(piece: Piece, rig: Rig, tempo: Double? = nil) throws {
         self.piece = piece
         self.rig = rig
         score = try ScoreData.load(path: piece.url.appendingPathComponent("score.json").path)
         firstBar = score.barStarts.map { $0.1 }.min()!
         lastBar = score.barStarts.map { $0.1 }.max()!
-        acc = Accompanist(score: score, firstBar: firstBar, lastBar: lastBar, clock: BeatClock(spb: 60 / tempo))
+        acc = Accompanist(score: score, firstBar: firstBar, lastBar: lastBar, clock: BeatClock(spb: 60 / min(160, max(30, tempo ?? score.tempo ?? 63))))
         recording = Recording(start: 0, piece: piece.id)
     }
 
