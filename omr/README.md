@@ -14,6 +14,8 @@ is the part meant to last: re-run it when new models come out.
   onset in the bar, duration) match exactly; rests, grace notes, dynamics and spelling (G♭ = F♯) don't count.
   `python3 omr/score.py scores/schumann-op47-iii.mxl <transcription> 1 26 [--show]`
 - `prompt-A.md`: approach A, the page and a prompt, nothing else. `runs/`: what each produced.
+- `agree.py`: where two readings of a page differ. `join.py`: pages into one score (with `accidentals.py` and
+  `beams.py`, since the readings carry only pitches and durations).
 
 ## Results, page 24 (2026-10-30)
 
@@ -49,5 +51,20 @@ Sonnet looked once and wrote placeholder chords for the piano.
 - The page images are 150 dpi; the models say the close chords are where resolution runs out (they zoom in
   themselves, but only on what they're shown).
 
-Next: a Mozart page (no answer key: `rehearsal check` and spot checks); a 300 dpi page to see if resolution is the
-limit; three runs per page with disagreements flagged for proofreading.
+### 300 dpi (2026-10-31)
+
+Page 24 at 300 dpi, one Opus run: 99% of part-bars (103/104), 99.6% of notes, against 93-99% at 150 dpi.
+
+## The Mozart (2026-10-31)
+
+K. 493, I, all 12 pages (252 bars), 300 dpi: two independent Opus readings per page (8-18 min, 125-270k tokens
+each), `agree.py` on each pair, then an Opus pass (or me) settling each disagreement from the scan. The pairs
+agreed on 976 of 1008 part-bars (97%); two pages agreed completely. Of the 32 disputes, about half went each way;
+one bar both readings had wrong (a missed natural) was caught by eye. `rehearsal check` finds nothing in the result.
+About 5M tokens and 1.5 hours in all, nearly all of it parallel. Result: `scores/mozart-k493-i.mxl`, with the bars
+to proofread first in `scores/README.md`.
+
+What we learnt: a frontier model reading the page is already far better than Audiveris here (17% of part-bars right
+on the Schumann page vs 93-99%), and two readings plus a look at their disagreements gets most of the rest. The
+"software" is three small scripts (agree, join, and the scorer) and a prompt; better models will make it cheaper,
+not obsolete. Still missing: dynamics, slurs and ornaments (a second pass could add them the same way).
