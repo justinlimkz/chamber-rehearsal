@@ -29,7 +29,8 @@ PARTS = (*STRING_PARTS, "Piano")
 def score_data(score: Score) -> dict:
     """What the engine reads from the score (the iPad makes the same from a MusicXML file itself, checked by
     `import_fixtures`): the bars, the notes of the parts it has, and the string parts' loudness curves."""
-    have = [name for name in PARTS if any(p.lower().startswith(name.lower()) for p in score.part_names)]
+    found = {musicxml.instrument(p.names, p.program) for p in score.read_parts}
+    have = [name for name in PARTS if name in found or any(p.lower().startswith(name.lower()) for p in score.part_names)]
     strings = [name for name in have if name in STRING_PARTS]
     data = {
         "title": score.title,

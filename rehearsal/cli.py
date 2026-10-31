@@ -89,7 +89,8 @@ def cmd_bundle(args) -> int:
         for path in bundle.fixtures(score, Path(args.fixtures), takes, sessions):
             print(f"wrote {path}")
     if args.import_fixtures:  # the test pieces and the scores, as the iPad's MusicXML import must read them
-        sources = sorted(Path("tests/musicxml").glob("*.musicxml")) + sorted(Path("scores").glob("*.mxl"))
+        sources = (sorted(Path("tests/musicxml").glob("*.musicxml")) + sorted(Path("tests/musicxml/outside").glob("*.mxl"))
+                   + sorted(Path("scores").glob("*.mxl")))
         for path in bundle.import_fixtures(sources, Path(args.import_fixtures)):
             print(f"wrote {path}")
     return 0

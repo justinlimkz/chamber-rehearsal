@@ -33,6 +33,7 @@ class Note:
 class Part:
     id: str
     names: list[str]  # part-name, part-abbreviation, instrument names
+    program: int | None = None  # its General MIDI program (1-128), if the score gives one
     notes: list[Note] = field(default_factory=list)  # sorted by (onset, pitch); grace notes last 0
     bars: list[tuple[float, int]] = field(default_factory=list)  # (beat, printed number), in playing order
     marks: list[tuple[float, str]] = field(default_factory=list)  # dynamics, lower case
@@ -77,23 +78,52 @@ def load(path: Path, unfold: bool = True) -> Score:
     root = ET.fromstring(text(path))
     if root.tag != "score-partwise":
         raise ValueError("not a part-wise MusicXML score")
-    work = (_value(root, "work/work-title") or None)
-    movement = (_value(root, "movement-title") or None)
-    credit = next((_value(c, "credit-words") for c in root.findall("credit") if _value(c, "credit-type") == "title"), None)
-    composer = next(((c.text or "").strip() for c in root.findall("identification/creator") if c.get("type") == "composer"), "")
-    info = {}
+    work = _meant(_value(root, "work/work-title"))
+    movement = _meant(_value(root, "movement-title"))
+
+    def credit(kind):
+        return _meant(next((_value(c, "credit-words") for c in root.findall("credit") if _value(c, "credit-type") == kind), None))
+
+    composer = _meant(next(((c.text or "").strip() for c in root.findall("identification/creator")
+                            if c.get("type") == "composer"), None)) or credit("composer") or ""
+    info, programs = {}, {}
     for sp in root.findall("part-list/score-part"):
         names = [_value(sp, "part-name"), _value(sp, "part-abbreviation")]
         names += [_value(si, "instrument-name") for si in sp.findall("score-instrument")]
         info[sp.get("id")] = [n for n in names if n]
+        programs[sp.get("id")] = next((int(p) for p in (_value(m, "midi-program") for m in sp.findall("midi-instrument"))
+                                       if p and p.isdigit()), None)
     nodes = root.findall("part")
     order = playing_order(nodes) if unfold else list(range(max((len(p.findall("measure")) for p in nodes), default=0)))
     parts = []
     for node in nodes:
-        part = Part(node.get("id", ""), info.get(node.get("id"), []))
+        part = Part(node.get("id", ""), info.get(node.get("id"), []), programs.get(node.get("id")))
         _read(node, order, part)
         parts.append(part)
-    return Score(movement or work or credit or "", work, movement, composer, parts, _tempo(nodes))
+    return Score(movement or work or credit("title") or "", work, movement, composer, parts, _tempo(nodes))
+
+
+def _meant(s: str | None) -> str | None:
+    """A title or composer as written, or None when it's empty or a notation program's placeholder ("Title")."""
+    return None if not s or s.lower() in ("title", "subtitle", "composer", "untitled score") else s
+
+
+def instrument(names: list[str], program: int | None = None) -> str | None:
+    """The engine's name for a part (Violin, Viola, Violoncello, Piano) from the names the score gives it, else its
+    General MIDI program (41 violin, 42 viola, 43 cello, 1-8 the pianos and harpsichord), which says the instrument
+    whatever the language. (ScoreImport.instrument in the app, the same rules)"""
+    for raw in names:
+        n = raw.lower().replace(".", " ").strip()
+        first = n.split()[0] if n.split() else n
+        if "cello" in n or n.startswith("violoncel") or first in ("vc", "vlc", "vcl", "vcello"):
+            return "Violoncello"
+        if n.startswith("viola") or first in ("va", "vla", "br", "bratsche", "alto"):
+            return "Viola"
+        if n.startswith("violin") or first in ("vn", "vln", "vl", "vni", "violon", "viool"):
+            return "Violin"
+        if "piano" in n or n.startswith("klavier") or first in ("pno", "pf", "pft", "kl"):
+            return "Piano"
+    return {41: "Violin", 42: "Viola", 43: "Violoncello"}.get(program) or ("Piano" if program in range(1, 9) else None)
 
 
 def _tempo(parts) -> float | None:

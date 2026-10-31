@@ -95,11 +95,12 @@ class Accompanist:
                 piano.setdefault(n.onset_beat, set()).add(n.pitch)
         self.piano_onsets = sorted(piano)
         self.piano_pitches = {b: frozenset(p) for b, p in piano.items()}
-        self.levels = dynamics.curves(self.score, STRING_PARTS) if self.dynamics else None
+        strings = [name for name in STRING_PARTS if self.score.has(name)]  # a trio or a sonata has fewer
+        self.levels = dynamics.curves(self.score, strings) if self.dynamics else None
         velocity = dynamics.TOP_VELOCITY if self.dynamics else self.velocity
         self.notes = sorted(
             (StringNote(name, n.pitch, n.onset_beat, n.duration_beat, velocity)
-             for name in STRING_PARTS for n in self.score.notes(name)
+             for name in strings for n in self.score.notes(name)
              if self.start_beat <= n.onset_beat < self.end_beat),
             key=lambda n: (n.onset_beat, n.part, n.pitch),
         )

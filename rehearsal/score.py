@@ -42,10 +42,20 @@ class Score:
 
     def read(self, name: str) -> musicxml.Part:
         """musicxml.py's reading of a part: its notes, bars and loudness markings."""
+        for p in self.read_parts:  # the part that is that instrument, else one whose name starts so
+            if musicxml.instrument(p.names, p.program) == name:
+                return p
         for p in self.read_parts:
             if p.name.lower().startswith(name.lower()):
                 return p
         raise KeyError(f"no part {name!r}; have {self.part_names}")
+
+    def has(self, name: str) -> bool:
+        try:
+            self.read(name)
+            return True
+        except KeyError:
+            return False
 
     @property
     def part_names(self) -> list[str]:

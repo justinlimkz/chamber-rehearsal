@@ -75,6 +75,7 @@ public struct MusicXMLPart: Sendable {
     public let id: String
     public let name: String  // as written: part-name, else part-abbreviation, else instrument-name
     public let names: [String]  // every name the score gives it, for telling the instrument
+    public var program: Int? = nil  // its General MIDI program (1-128), if the score gives one: the instrument in any language
     public var notes: [ScoreNote] = []  // ties joined; grace notes last 0; sorted by (onset, pitch)
     public var bars: [(beat: Double, number: Int)] = []  // every bar in playing order, by its printed number
     public var marks: [(beat: Double, text: String)] = []  // dynamics (pp ... ff and any others), lower case
@@ -102,6 +103,12 @@ public struct MusicXMLScore: Sendable {
         return d
     }
 
+    /// A title or composer as written, or nil when it's empty or a notation program's placeholder ("Title").
+    static func meant(_ s: String?) -> String? {
+        guard let s, !s.isEmpty, !["title", "subtitle", "composer", "untitled score"].contains(s.lowercased()) else { return nil }
+        return s
+    }
+
     static func firstTempo(_ node: XMLNode) -> Double? {
         if node.name == "sound", let t = node.attrs["tempo"].flatMap(Double.init), t > 0 { return t }
         for c in node.children { if let t = firstTempo(c) { return t } }
@@ -113,20 +120,23 @@ public struct MusicXMLScore: Sendable {
         guard root.name == "score-partwise" else {
             throw root.name == "score-timewise" ? MusicXMLError.notPartwise : MusicXMLError.unreadable("it isn't a score")
         }
-        let workTitle = root.child("work")?.value("work-title").flatMap { $0.isEmpty ? nil : $0 }
-        let movementTitle = root.value("movement-title").flatMap { $0.isEmpty ? nil : $0 }
-        let credit = root.all("credit").first { $0.value("credit-type") == "title" }?.value("credit-words")
+        let workTitle = Self.meant(root.child("work")?.value("work-title"))
+        let movementTitle = Self.meant(root.value("movement-title"))
+        let credit = { (type: String) in
+            Self.meant(root.all("credit").first { $0.value("credit-type") == type }?.value("credit-words"))
+        }
         work = workTitle
         movement = movementTitle
-        title = movementTitle ?? workTitle ?? credit ?? ""
-        composer = root.child("identification")?.all("creator").first { $0.attrs["type"] == "composer" }?
-            .text.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        var info: [String: [String]] = [:]
+        title = movementTitle ?? workTitle ?? credit("title") ?? ""
+        composer = Self.meant(root.child("identification")?.all("creator").first { $0.attrs["type"] == "composer" }?
+            .text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? credit("composer") ?? ""
+        var info: [String: [String]] = [:], programs: [String: Int] = [:]
         for sp in root.child("part-list")?.all("score-part") ?? [] {
             guard let id = sp.attrs["id"] else { continue }
             let names: [String?] = [sp.value("part-name"), sp.value("part-abbreviation")]
                 + sp.all("score-instrument").map { $0.value("instrument-name") }
             info[id] = names.compactMap { $0 }.filter { !$0.isEmpty }
+            programs[id] = sp.all("midi-instrument").lazy.compactMap { $0.value("midi-program").flatMap { Int($0) } }.first
         }
         let partNodes = root.all("part")
         guard !partNodes.isEmpty else { throw MusicXMLError.noParts }
@@ -135,7 +145,7 @@ public struct MusicXMLScore: Sendable {
         parts = partNodes.map { node in
             let id = node.attrs["id"] ?? ""
             let names = info[id] ?? []
-            var part = MusicXMLPart(id: id, name: names.first ?? id, names: names)
+            var part = MusicXMLPart(id: id, name: names.first ?? id, names: names, program: programs[id])
             Self.read(node, order: order, into: &part)
             return part
         }

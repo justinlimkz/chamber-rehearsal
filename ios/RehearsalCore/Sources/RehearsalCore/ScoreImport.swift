@@ -14,7 +14,7 @@ public struct ScoreImport {
         score = try MusicXMLScore(data: data)
         var parts: [String: MusicXMLPart] = [:], ignored: [String] = []
         for p in score.parts {
-            guard let name = Self.instrument(p.names) else { ignored.append(p.name); continue }
+            guard let name = Self.instrument(p.names, program: p.program) else { ignored.append(p.name); continue }
             if parts[name] != nil {
                 throw MusicXMLError.twoParts(name == "Violoncello" ? "cello" : name.lowercased())
             }
@@ -26,17 +26,25 @@ public struct ScoreImport {
         self.ignored = ignored
     }
 
-    /// The engine's name for a part, from the names the score gives it.
-    static func instrument(_ names: [String]) -> String? {
+    /// The engine's name for a part, from the names the score gives it, else its General MIDI program (41 violin,
+    /// 42 viola, 43 cello, 1-8 the pianos and harpsichord), which says the instrument whatever the language.
+    /// (rehearsal/musicxml.py instrument, the same rules)
+    static func instrument(_ names: [String], program: Int? = nil) -> String? {
         for raw in names {
-            let n = raw.lowercased().replacingOccurrences(of: ".", with: " ").trimmingCharacters(in: .whitespaces)
-            let first = n.split(separator: " ").first.map(String.init) ?? n
-            if n.contains("cello") || ["vc", "vlc", "vcl", "vcello"].contains(first) { return "Violoncello" }
+            let n = raw.lowercased().replacingOccurrences(of: ".", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+            let first = n.split(whereSeparator: { $0 == " " || $0.isNewline }).first.map(String.init) ?? n
+            if n.contains("cello") || n.hasPrefix("violoncel") || ["vc", "vlc", "vcl", "vcello"].contains(first) { return "Violoncello" }
             if n.hasPrefix("viola") || ["va", "vla", "br", "bratsche", "alto"].contains(first) { return "Viola" }
-            if n.hasPrefix("violin") || n.hasPrefix("violino") || ["vn", "vln", "vl", "vni", "violon"].contains(first) { return "Violin" }
+            if n.hasPrefix("violin") || ["vn", "vln", "vl", "vni", "violon", "viool"].contains(first) { return "Violin" }
             if n.contains("piano") || n.hasPrefix("klavier") || ["pno", "pf", "pft", "kl"].contains(first) { return "Piano" }
         }
-        return nil
+        switch program ?? 0 {
+        case 41: return "Violin"
+        case 42: return "Viola"
+        case 43: return "Violoncello"
+        case 1...8: return "Piano"
+        default: return nil
+        }
     }
 
     /// score.json for the piece. `work`/`movement`: the score's own titles unless given.

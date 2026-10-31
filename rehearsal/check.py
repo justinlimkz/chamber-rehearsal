@@ -35,34 +35,21 @@ class Problem:
         return f"bar {self.bar:>4}  {self.part:<12} {self.text}"
 
 
-def _instrument(names: list[str]) -> str | None:
-    for n in names:
-        n = n.lower().replace(".", " ").strip()
-        first = n.split()[0] if n.split() else n
-        if "cello" in n or first in ("vc", "vlc"):
-            return "Violoncello"
-        if n.startswith("viola") or first in ("va", "vla"):
-            return "Viola"
-        if n.startswith("violin") or first in ("vn", "vln", "vl"):
-            return "Violin"
-        if "piano" in n or first in ("pno", "pf"):
-            return "Piano"
-    return None
-
-
 def check(path: Path) -> list[Problem]:
     root = ET.fromstring(musicxml.text(path))
-    names = {}
+    names, programs = {}, {}
     for sp in root.findall("part-list/score-part"):
         ns = [sp.findtext("part-name", ""), sp.findtext("part-abbreviation", "")]
         ns += [si.findtext("instrument-name", "") for si in sp.findall("score-instrument")]
         names[sp.get("id")] = [n.strip() for n in ns if n and n.strip()]
+        programs[sp.get("id")] = next((int(p) for p in (m.findtext("midi-program", "").strip()
+                                                        for m in sp.findall("midi-instrument")) if p.isdigit()), None)
     problems: list[Problem] = []
     counts = {}
     for part in root.findall("part"):
         pid = part.get("id", "")
         label = names.get(pid, [pid])[0] if names.get(pid) else pid
-        low, high = RANGES.get(_instrument(names.get(pid, [])) or "", (0, 127))
+        low, high = RANGES.get(musicxml.instrument(names.get(pid, []), programs.get(pid)) or "", (0, 127))
         divisions, nominal = Fraction(1), Fraction(4)
         open_ties: dict[int, tuple[str, int]] = {}  # pitch -> (bar, index) where a tie started
         measures = part.findall("measure")

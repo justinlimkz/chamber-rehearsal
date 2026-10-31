@@ -49,7 +49,8 @@ Developer account removes the limit.
 What the app reads from the score:
 
 - **The parts.** It looks for parts named Piano, Violin, Viola and Cello (or Violoncello), in the usual spellings
-  and abbreviations (Vln., Vla., Vc., Pno., and so on). You play the piano part; the strings play the others.
+  and abbreviations (Vln., Vla., Vc., Pno., and so on) and a few languages (Violine, Violon, Viool, Violoncelle,
+  Klavier). Where the names don't say, the instrument's MIDI sound does (MuseScore and most programs write one). You play the piano part; the strings play the others.
   Other parts are shown in the score but not played. The score needs exactly one piano part and at most one of
   each string instrument.
 - **Repeats** are played out, with first and second endings. D.C. and D.S. are not followed yet.
@@ -75,10 +76,12 @@ What the app reads from the score:
   play before the piano skips their notes until you come in; there is no count-in yet.
 - **Scores:** D.C. and D.S. aren't followed; time-wise MusicXML is refused; a piece's title can't be edited after
   adding it; a large score takes a few seconds to read, and the screen waits meanwhile. Pieces with two violins
-  (piano quintets) aren't supported. Trills and turns are played as written notes only (no ornaments); the two
+  (piano quintets) aren't supported. A file holding several movements is read as one long piece, and "from bar
+  20" finds the first movement's bar 20: add one movement per file. Trills and turns are played as written notes only (no ornaments); the two
   Mozart movements were read from a scan and have no slurs, grace notes or ornaments.
-- **Tested with:** one pianist, a Roland FP-30, an iPad Pro, three piano quartet movements, and voice cues from
-  synthetic speech only.
+- **Tested with:** one pianist, a Roland FP-30 and an iPad Pro on three piano quartet movements; voice cues with
+  synthetic speech only. A piano trio, a violin sonata and a cello sonata from MuseScore were imported and played
+  through with a simulated pianist.
 
 ## The Mac tools
 
@@ -138,6 +141,8 @@ are kept out of the repository, so this works only where they are).
   repository. They come from the University of Iowa Musical Instrument Samples, VSCO-2 Community Edition (CC0),
   Karoryfer's Big Cat cello (CC0) and Wikimedia Commons (CC0, public domain, CC BY or CC BY-SA, recorded per file).
   Some of them use FluidSynth (LGPL-2.1), Demucs (MIT) and Google's DDSP (Apache 2.0), installed separately.
+- Test scores in `tests/musicxml/outside/`: CC0 transcriptions from MuseScore, by way of the PDMX dataset (CC BY
+  4.0); sources in that folder's README.
 - The Schumann score: a transcription of the whole quartet on MuseScore by user 37403731
   ([score](https://musescore.com/user/37403731/scores/10195096)), CC0. Movement III is cut from it
   (`scores/README.md`).

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from rehearsal.score import Score
@@ -27,3 +29,23 @@ def test_beats_within_bar_after_unfolding(score):
 def test_repeat_unfolded(score):
     folded = Score(unfold=False)
     assert len(score.notes("Piano")) > len(folded.notes("Piano"))
+
+
+def test_parts_told_apart_in_other_languages_and_by_midi_program():
+    from rehearsal.musicxml import instrument
+    assert instrument(["Viool"]) == "Violin"
+    assert instrument(["Violoncelle"]) == "Violoncello"
+    assert instrument(["Cello"]) == "Violoncello"
+    assert instrument(["Violino        \n(flauto traverso)"]) == "Violin"
+    assert instrument(["Pianoforte"]) == "Piano"
+    assert instrument(["ヴィオラ ダ ガンバ"], 43) == "Violoncello"  # names no help: the MIDI program says
+    assert instrument(["ハープシーコード"], 7) == "Piano"
+    assert instrument(["Flute"], 74) is None
+
+
+def test_outside_scores_read_with_their_strings_and_real_titles():
+    trio = Score(Path("tests/musicxml/outside/beethoven-op1-1-trio-i.mxl"))  # "Viool", "Cello", "Piano"
+    assert trio.has("Violin") and trio.has("Violoncello") and not trio.has("Viola")
+    kreutzer = Score(Path("tests/musicxml/outside/beethoven-kreutzer-i.mxl"))  # work title "Title", creator "Composer"
+    assert kreutzer.title.startswith("Violin Sonata No. 9")
+    assert kreutzer.composer == "Ludwig van Beethoven"
