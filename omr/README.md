@@ -67,4 +67,6 @@ to proofread first in `scores/README.md`.
 What we learnt: a frontier model reading the page is already far better than Audiveris here (17% of part-bars right
 on the Schumann page vs 93-99%), and two readings plus a look at their disagreements gets most of the rest. The
 "software" is three small scripts (agree, join, and the scorer) and a prompt; better models will make it cheaper,
-not obsolete. Still missing: dynamics, slurs and ornaments (a second pass could add them the same way).
+not obsolete. Dynamics were added that way (2026-10-31): one Opus pass per page reading only the markings into JSON
+(`directions.py` writes them in at their beats), about 1-5 minutes and 60-70k tokens a page. Still missing: slurs and
+ornaments.

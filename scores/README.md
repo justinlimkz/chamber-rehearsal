@@ -30,8 +30,9 @@ software: each page read twice independently, every bar where the two readings d
 settled by looking at the scan again, then joined with `omr/join.py` (which adds printed accidentals and beams).
 How well this works was measured first on Schumann pages with a known answer (`omr/README.md`).
 
-Notes and rhythms only: no dynamics, slurs, articulations, ornaments or grace notes yet (so the strings play at one
-level until dynamics are added). Not yet proofread by a person. Where to look first (bars as numbered in the file):
+Dynamics (p, f, ff, fp, sf, cresc. and the words dolce and legato: 129 markings) were then read off each page by a
+second Opus pass into JSON and written in as directions (`omr/directions.py`). Still missing: slurs, articulations,
+ornaments and grace notes. Not yet proofread by a person. Where to look first (bars as numbered in the file):
 
 | Bar | Part | What |
 |---|---|---|
@@ -41,3 +42,4 @@ level until dynamics are added). Not yet proofread by a person. Where to look fi
 | 64, 72 | Violin / piano | Quarter then eighths (a stray dot near the quarter). |
 | 244 | Piano LH | B♭ E♭ G (the natural cancels a G♭). |
 | throughout | | Ties vs slurs between equal notes: read as ties. |
+| 18, 22, 93, 165, 169, 239 | violin, viola | p under the second eighth (beat 1) as printed, not on the downbeat. |

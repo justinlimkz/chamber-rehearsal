@@ -11,7 +11,8 @@ curve, so velocity 127 with expression 80 is mf, as loud as every note used to b
 accompanist updates the expression as the beat moves, so a hairpin shapes notes already sounding;
 velocities alone made a step at each new note (heard in round 3).
 
-Accents and sforzandi are not read: this score has none (only staccato dots).
+Forte-piano (fp, sfp) is read as the piano it falls back to: the level from there on. Accents and sforzandi (sf, fz)
+are not read (the Schumann has none; the Mozart's are single-note accents).
 
 On top of the markings, one player's reading of each phrase (`Expression`; compared with a real recording of this
 movement, 2026-10-29, our strings varied half as much from beat to beat and their held notes didn't swell). The
@@ -32,7 +33,7 @@ import numpy as np
 
 from . import musicxml
 
-LEVELS_DB = {"pp": -12.0, "p": -7.0, "mp": -3.5, "mf": 0.0, "f": 4.0, "ff": 7.0}
+LEVELS_DB = {"pp": -12.0, "p": -7.0, "mp": -3.5, "mf": 0.0, "f": 4.0, "ff": 7.0, "fp": -7.0, "sfp": -7.0}
 DEFAULT_DB = 0.0  # before the part's first marking: mf
 STEP_DB = 4.0  # a hairpin with no dynamic at its end
 EASE = 0  # pieces of the S-curve each ramp follows (0: straight ramps)

@@ -77,7 +77,7 @@ public struct ScoreImport {
 
 // MARK: rehearsal/dynamics.py
 
-let LEVELS_DB: [String: Double] = ["pp": -12, "p": -7, "mp": -3.5, "mf": 0, "f": 4, "ff": 7]
+let LEVELS_DB: [String: Double] = ["pp": -12, "p": -7, "mp": -3.5, "mf": 0, "f": 4, "ff": 7, "fp": -7, "sfp": -7]
 let STEP_DB = 4.0, UNSPANNED_BEATS = 8.0, END_SLACK = 1.0
 let ARCH_DB = 4.0, SWELL_DB = 3.0, SWELL_BEATS = 1.5, RANGE = 1.4, GRID = 0.25
 
