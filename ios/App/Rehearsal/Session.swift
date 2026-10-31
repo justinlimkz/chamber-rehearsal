@@ -26,6 +26,7 @@ final class Session: @unchecked Sendable {
     private var heard: String?  // the words of the last voice cue
     private var passes: [Pass] = []  // this recording's passes, for the last-pass line and the recordings list
     private var furthest: Double?  // the furthest beat played with the strings, for the bar picker
+    private var pedalDown = false
     private let saving = DispatchQueue(label: "saving", qos: .utility)
     private let t0 = HostTime.now()
     private var running = true
@@ -71,6 +72,10 @@ final class Session: @unchecked Sendable {
         lock.withLock {
             recording.piano(t, e)
             if e.kind == .noteOn { acc.onPianoOnset(t, e.note) }
+            if e.kind == .pedal {  // pressing the pedal counts the strings in, where they play first
+                if e.value >= 64 && !pedalDown && acc.canCountIn { view.lastCue = acc.onCue(t, Cue(kind: "go")) }
+                pedalDown = e.value >= 64
+            }
         }
     }
 
@@ -79,10 +84,10 @@ final class Session: @unchecked Sendable {
         lock.withLock { extraNotices.append(n); recording.notice(n) }
     }
 
-    /// A cue from the screen: "again", "top", "pause", "resume", or a bar number ("p9": from the pickup to bar 9).
+    /// A cue from the screen: "again", "top", "pause", "resume", "go", or a bar number ("p9": from the pickup to bar 9).
     func cue(_ text: String) {
         switch text {
-        case "again", "top", "pause", "resume": cue(Cue(kind: text))
+        case "again", "top", "pause", "resume", "go": cue(Cue(kind: text))
         default:
             if let bar = Int(text) { cue(Cue(kind: "bar", bar: bar)) }
             else if text.hasPrefix("p"), let bar = Int(text.dropFirst()) { cue(Cue(kind: "bar", bar: bar, pickup: true)) }
@@ -138,7 +143,7 @@ final class Session: @unchecked Sendable {
                 for o in outs { recording.played(now, o) }
                 return (outs, acc.waiting || acc.finished)
             }
-            for o in outs { rig.strings.play(o) }
+            for o in outs where o.kind != "click" || Settings.clicksOn { rig.strings.play(o) }
             if waiting != wasWaiting {
                 wasWaiting = waiting
                 rig.voice.listen(waiting && Settings.voiceOn)
@@ -164,14 +169,17 @@ final class Session: @unchecked Sendable {
         let now = self.now()
         return lock.withLock {
             let state = acc.finished ? "finished" : acc.trailing ? "trailing" : acc.paused ? "paused"
-                : acc.waiting ? (acc.started ? "waiting" : "ready") : "playing"
-            let restart: Double? = ["waiting", "ready", "paused"].contains(state) ? acc.restartFrom : nil
+                : acc.waiting ? (acc.started ? "waiting" : "ready") : acc.counting ? "counting" : "playing"
+            // where they'll start: the strings' first notes if they play first, else your first chord
+            let restart: Double? = ["waiting", "ready", "paused"].contains(state) ? acc.leadIn ?? acc.restartFrom
+                : state == "counting" ? acc.countFrom + Double(acc.countBeats) : nil
             let notices = (acc.notices + extraNotices).sorted { $0.t < $1.t }.suffix(5).map { [$0.t, $0.text] as [Any] }
             return [
                 "state": state, "keyboard": rig.keyboard.name as Any, "bpm": 60 / acc.clock.spb,
                 "mic": rig.voice.state, "heard": restart != nil ? heard as Any : NSNull(),
                 "notices": notices, "lastCue": restart != nil ? view.lastCue as Any : NSNull(),
                 "restartBeat": restart as Any, "lastBeat": acc.lastBeat as Any, "endBeat": min(acc.endBeat, 1e9),
+                "countIn": acc.canCountIn, "count": [acc.countFrom, Double(acc.countBeats)],
                 "clock": ["t0": acc.clock.t0, "b0": acc.clock.b0, "spb": acc.clock.spb], "now": now,
                 "lastPass": passes.last.map { $0.json(score) } as Any, "furthestBeat": furthest as Any,
             ]

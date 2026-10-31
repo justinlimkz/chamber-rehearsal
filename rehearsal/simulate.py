@@ -89,6 +89,10 @@ def write_midi(events: list[midi_io.MidiEvent], outs: list[Out], path: Path,
         else:
             msgs.append((e.time, mido.Message("note_off", channel=piano, note=e.note)))
     for o in outs:
+        if o.kind == "click":  # the count-in: a woodblock on the drum channel
+            msgs.append((o.time, mido.Message("note_on", channel=9, note=76 if o.velocity == 100 else 77, velocity=o.velocity)))
+            msgs.append((o.time + 0.05, mido.Message("note_off", channel=9, note=76 if o.velocity == 100 else 77)))
+            continue
         ch = CHANNELS[o.part]
         if o.kind == "expr":
             msgs.append((o.time, mido.Message("control_change", channel=ch, control=11, value=o.velocity)))

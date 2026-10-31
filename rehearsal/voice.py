@@ -1,5 +1,5 @@
 """Voice restart cues: what the strings are asked to do, and the phrases that ask for it ("from bar 9", "from the
-top", "again", "pause", "resume", ...). The iPad hears them with Apple's on-device speech recognition
+top", "again", "pause", "resume", "go", ...). The iPad hears them with Apple's on-device speech recognition
 (ios/App/Rehearsal/Voice.swift) and parses them as `parse` does here, digits too.
 """
 from __future__ import annotations
@@ -11,18 +11,19 @@ ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", 
 TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
 PAUSE = ("pause", "stop")  # the strings sit out while you practise alone
 RESUME = ("resume", "continue", "come back")
+GO = ("go", "count in", "count us in", "count me in")  # where the strings play first: count them in
 
 
 @dataclass(frozen=True)
 class Cue:
-    kind: str  # "bar" | "top" | "again" | "pause" (strings sit out) | "resume"
+    kind: str  # "bar" | "top" | "again" | "pause" (strings sit out) | "resume" | "go" (count the strings in)
     bar: int = 0
     pickup: bool = False  # "from the pickup to bar N"
 
     def __str__(self) -> str:
         if self.kind == "bar":
             return f"from the pickup to bar {self.bar}" if self.pickup else f"from bar {self.bar}"
-        return {"top": "from the top", "again": "again", "pause": "pause", "resume": "resume"}[self.kind]
+        return {"top": "from the top", "again": "again", "pause": "pause", "resume": "resume", "go": "go"}[self.kind]
 
 
 def number_words(n: int) -> str:
@@ -64,6 +65,8 @@ def parse(text: str) -> Cue | None:
         return Cue("pause")
     if " ".join(words) in RESUME:
         return Cue("resume")
+    if " ".join(words) in GO:
+        return Cue("go")
     if words[:3] in (["from", "the", "top"], ["from", "the", "beginning"]):
         return Cue("top")
     pickup = words[:4] == ["from", "the", "pickup", "to"]

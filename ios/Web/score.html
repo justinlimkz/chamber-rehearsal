@@ -128,7 +128,7 @@ function frame() {
   requestAnimationFrame(frame);
   if (!st || !layout || !Object.keys(bars).length) return;
   const beat = currentBeat();
-  const waiting = st.state === "waiting" || st.state === "ready";
+  const waiting = st.state === "waiting" || st.state === "ready" || st.state === "counting";
   const target = waiting && st.restartBeat != null ? barAt(st.restartBeat).n : null;
   if (beat != null) {
     const bar = barAt(beat), r = box(bar.n);

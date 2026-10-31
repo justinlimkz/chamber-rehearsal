@@ -31,6 +31,7 @@ struct Recording {
 
     mutating func piano(_ t: Double, _ e: PianoEvent) { piano.append((t - start, e)) }
     mutating func played(_ t: Double, _ o: Out) {
+        if o.kind == "click" { return }  // the count-in isn't part of the music
         strings.append(Out(t - start, o.kind, o.part, pitch: o.pitch, velocity: o.velocity, beat: o.beat))
     }
     mutating func notice(_ n: Notice) { notices.append(Notice(t: max(0, n.t - start), text: n.text)) }

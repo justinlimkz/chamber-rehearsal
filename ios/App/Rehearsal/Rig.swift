@@ -53,6 +53,7 @@ enum Settings {
     static let volume = "stringsVolume"
     static let voice = "voiceCues"
     static let keepAwake = "keepAwake"
+    static let clicks = "countInClicks"
 
     static func partVolume(_ part: String) -> Float {
         let d = UserDefaults.standard
@@ -62,5 +63,6 @@ enum Settings {
     static func setPartVolume(_ part: String, _ v: Float) { UserDefaults.standard.set(v, forKey: "volume." + part) }
 
     static var voiceOn: Bool { UserDefaults.standard.object(forKey: voice) as? Bool ?? true }
+    static var clicksOn: Bool { UserDefaults.standard.object(forKey: clicks) as? Bool ?? true }
     static var keepAwakeOn: Bool { UserDefaults.standard.object(forKey: keepAwake) as? Bool ?? true }
 }

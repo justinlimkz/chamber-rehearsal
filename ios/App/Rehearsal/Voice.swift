@@ -4,7 +4,7 @@ import Speech
 
 // Voice cues (rehearsal/voice.py on the iPad): "from bar nine", "from the pickup to bar nine",
 // "from the top", "again", and "pause"/"stop" (the strings sit out while you practise alone), "resume"/
-// "continue"/"come back". Apple's on-device speech recognition, listened to only while the strings are
+// "continue"/"come back", and "go"/"count us in" (where the strings play first: count them in). Apple's on-device speech recognition, listened to only while the strings are
 // waiting, so the piano and the strings don't trigger it.
 //
 // Recognition is open dictation (not a fixed grammar), so the text is searched for the last cue
@@ -66,7 +66,7 @@ final class Voice: @unchecked Sendable {
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         request.taskHint = .confirmation
-        request.contextualStrings = ["from the top", "again", "from bar", "from the pickup to bar", "from measure"]
+        request.contextualStrings = ["from the top", "again", "from bar", "from the pickup to bar", "from measure", "go", "count us in"]
         self.request = request
         fired = false
         generation += 1
@@ -119,10 +119,16 @@ final class Voice: @unchecked Sendable {
     static func parse(_ text: String) -> Cue? {
         let words = text.lowercased().replacingOccurrences(of: "-", with: " ")
             .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        let keys: Set<String> = ["from", "again", "pause", "stop", "resume", "continue"]
-        guard let i = words.indices.last(where: { keys.contains(words[$0]) || (words[$0] == "back" && $0 > 0 && words[$0 - 1] == "come") })
+        let keys: Set<String> = ["from", "again", "pause", "stop", "resume", "continue", "go"]
+        func countIn(_ j: Int) -> Bool {  // "count in", "count us in", "count me in"
+            words[j] == "count" && (words.dropFirst(j + 1).first == "in"
+                || (["us", "me"].contains(words.dropFirst(j + 1).first ?? "") && words.dropFirst(j + 2).first == "in"))
+        }
+        guard let i = words.indices.last(where: { keys.contains(words[$0]) || countIn($0)
+            || (words[$0] == "back" && $0 > 0 && words[$0 - 1] == "come") })
         else { return nil }
         switch words[i] {
+        case "go", "count": return Cue(kind: "go")
         case "again": return Cue(kind: "again")
         case "pause", "stop": return Cue(kind: "pause")
         case "resume", "continue", "back": return Cue(kind: "resume")

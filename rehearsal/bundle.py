@@ -82,6 +82,8 @@ def fixtures(score: Score, out: Path, takes: list[Path], sessions: list[Path]) -
         cases.append(("cues", events, 1, 16, cues))
         events, cues = _pause_take(score, midi_io.read_take(takes[0]))
         cases.append(("pause", events, 1, 16, cues))
+        events, cues = _count_in_take(score, midi_io.read_take(takes[0]))
+        cases.append(("count-in", events, 1, 16, cues))
     for p in sessions:
         piano = session.read(p)[0]
         cases.append(("session-" + p.stem, piano, 1, 132, []))
@@ -116,6 +118,22 @@ def _pause_take(score: Score, events: list[midi_io.MidiEvent]) -> tuple[list[mid
     with the strings; "pause" while waiting, bars 9-12 alone, "from bar 3", bars 3-6."""
     return _rehearsal(score, events, [(None, 1, 5), (Cue("pause"), 5, 9, 0.0), (Cue("resume"), 5, 9),
                                       (Cue("pause"), 9, 13), (Cue("bar", 3), 3, 7)])
+
+
+def _count_in_take(score: Score, events: list[midi_io.MidiEvent]) -> tuple[list[midi_io.MidiEvent], list[tuple[float, Cue]]]:
+    """Where the strings play first: bars 1-4, stop; "from bar 3" (three beats of strings before the piano), "go"
+    2 s later, and bars 3-6 from the piano's first chord, coming in 20 ms after the strings expect it."""
+    out, cues = _rehearsal(score, events, [(None, 1, 5), (Cue("bar", 3), None, None)])
+    t_go = cues[-1][0] + 2.0
+    cues.append((t_go, Cue("go")))
+    probe = simulate.run(score, out, 1, 16, clock=BeatClock(spb=60 / 63.0), cues=cues).accompanist
+    entry = probe.clock.time_of(probe.restart_from) + 0.02
+    truth = reference.align(score, events, 1, 16).truth
+    bar_start = {bar: b for b, bar in reversed(score.bar_starts())}
+    at = lambda bar: min(t for t, b in truth if b >= bar_start[bar])
+    t0, t1 = at(3), at(7) - 0.05
+    out += [midi_io.MidiEvent(e.time - t0 + entry, e.kind, e.note, e.value) for e in events if t0 - 0.05 <= e.time < t1]
+    return out, cues
 
 
 def _rehearsal(score: Score, events: list[midi_io.MidiEvent], steps: list[tuple]) -> tuple[list[midi_io.MidiEvent], list[tuple[float, Cue]]]:

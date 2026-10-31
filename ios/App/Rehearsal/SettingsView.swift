@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var voiceState = "off"
     @AppStorage(Settings.voice) private var voice = true
     @AppStorage(Settings.keepAwake) private var keepAwake = true
+    @AppStorage(Settings.clicks) private var clicks = true
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,11 @@ struct SettingsView: View {
                     LabeledContent("Output", value: output)
                 }
                 Section {
+                    Toggle("Count-in clicks", isOn: $clicks)
+                } header: { Text("Count-in") } footer: {
+                    Text("Where the strings play before you (from the top of a piece that opens with them, or a bar where they come in first), press the sustain pedal and they count one bar in, then start. Without clicks, the count shows as dots under the bar number.")
+                }
+                Section {
                     Toggle("Restart by voice", isOn: $voice)
                     if voice && voiceState == "denied" {
                         Button("Allow the microphone and speech recognition") {
@@ -46,7 +52,7 @@ struct SettingsView: View {
                     } else if voice && voiceState == "unsupported" {
                         Text("This iPad can't recognise speech on the device, so voice cues are off. Use the buttons.")
                     } else {
-                        Text("Listens only while the strings are stopped: “from bar nine”, “again”, “from the top”, “pause”, “resume”. Works offline, on the iPad.")
+                        Text("Listens only while the strings are stopped: “from bar nine”, “again”, “from the top”, “pause”, “resume”, and “go” to count the strings in. Works offline, on the iPad.")
                     }
                 }
                 Section("Screen") {

@@ -146,3 +146,64 @@ def test_pause_ignores_the_piano_until_resume(score):
     assert acc.on_cue(99.0, Cue("resume")).startswith("resume: strings come in with you at bar")
     assert not acc.paused and acc.waiting
 
+
+
+def run_until(acc, t0, t1, step=0.001):
+    out, t = [], t0
+    while t < t1:
+        out += acc.due(t)
+        t += step
+    return out
+
+
+def play_chord(acc, t, beat):
+    for i, pitch in enumerate(sorted(acc.piano_pitches[beat])):
+        acc.on_piano_onset(t + 0.002 * i, pitch)
+
+
+@pytest.mark.parametrize("late_s", [0.02, 2.5])
+def test_go_counts_the_strings_in_where_they_play_first(score, late_s):
+    acc = Accompanist(score, 1, 16)
+    assert acc.lead_in is None  # bar 1: the piano starts
+    assert "press the pedal" in acc.on_cue(0.0, Cue("bar", 3))  # bar 3: three beats of strings before the piano
+    assert acc.can_count_in
+    assert "counting in" in acc.on_cue(1.0, Cue("go"))
+    entry = acc.clock.time_of(acc.restart_from)
+    out = run_until(acc, 1.0, entry + late_s)
+    clicks = [o for o in out if o.kind == "click"]
+    assert [o.beat for o in clicks] == [3.0, 4.0, 5.0]  # a bar of 3/4 before bar 3
+    assert clicks[0].time == pytest.approx(1.0 + 0.3, abs=0.002) and [o.velocity for o in clicks] == [100, 70, 70]
+    first = [o for o in out if o.kind == "on"]
+    assert min(o.beat for o in first) == 6.0  # bar 3 beat 1, on the beat after the last click
+    want = {(n.part, n.pitch, n.onset_beat) for n in acc.notes if 6.0 <= n.onset_beat <= acc.restart_from}
+    assert {(o.part, o.pitch, o.beat) for o in first} == want  # all of theirs up to your first chord, none after
+    assert not any("stopped" in text for _, text in acc.notices)  # however late you are, they wait
+    t, entry_beat = entry + late_s, acc.restart_from
+    play_chord(acc, t, entry_beat)
+    later = [o for o in run_until(acc, t, t + 1.0) if o.kind == "on"]
+    assert later and all(o.beat > entry_beat for o in later)  # nothing played twice
+    assert acc.log[0][1] == entry_beat and not acc.leading
+
+
+def test_without_go_the_strings_wait_for_your_first_chord(score):
+    acc = Accompanist(score, 1, 16)
+    acc.on_cue(0.0, Cue("bar", 3))
+    assert [o for o in run_until(acc, 0.0, 5.0) if o.kind in ("on", "click")] == []
+    play_chord(acc, 5.0, acc.restart_from)
+    assert min(o.beat for o in run_until(acc, 5.0, 6.0) if o.kind == "on") >= acc.restart_from
+
+
+def test_go_is_ignored_where_the_piano_starts(score):
+    acc = Accompanist(score, 1, 16)
+    acc.on_cue(0.0, Cue("bar", 5))
+    assert not acc.can_count_in
+    assert "ignored" in acc.on_cue(1.0, Cue("go"))
+    assert acc.waiting and run_until(acc, 1.0, 4.0) == []
+
+
+def test_a_strings_first_opening_can_be_counted_in_from_the_start():
+    from pathlib import Path
+
+    kreutzer = Score(Path(__file__).parent / "musicxml" / "outside" / "beethoven-kreutzer-i.mxl")
+    acc = Accompanist(kreutzer, 1, 30)
+    assert acc.lead_in == acc.start_beat and acc.can_count_in  # the violin's solo opening

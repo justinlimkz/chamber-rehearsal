@@ -14,6 +14,11 @@ Stopping and starting again:
 - While waiting, playing on (or going back a couple of chords) restarts them where the notes fit.
   Going back further needs a voice cue ("from bar 9", "from the top", "again"): after a cue they wait
   for the pianist's first notes there.
+
+Where the strings play first (from the top of the Kreutzer, from bar 9 of the Mozart): a "go" (the pianist presses
+the sustain pedal) counts them in, one bar of clicks at the clock's tempo, and they play on their own up to your
+first chord. Notes after it wait for you, however late you come in; your first chord then sets the clock as a
+restart does. Without a "go", they wait for your first chord as before and skip their notes before it.
 """
 from __future__ import annotations
 
@@ -48,6 +53,8 @@ SKIP_PENALTY = 0.4  # per score chord skipped past the next expected one
 BACK_PENALTY = 0.6  # per score chord stepped back (to undo an earlier wrong match)
 MIN_SCORE = 0.0  # below this the chord is treated as stray notes
 
+COUNT_DELAY_S = 0.3  # the count-in's first click, this long after the "go"
+
 
 @dataclass(frozen=True)
 class StringNote:
@@ -66,7 +73,8 @@ class StringNote:
 class Out:
     """A string event the sound engine should play. `time` is when it was meant to sound."""
     time: float
-    kind: str  # "on" | "off" | "expr" (expression, CC11, value in `velocity`)
+    kind: str  # "on" | "off" | "expr" (expression, CC11, value in `velocity`) | "click" (the count-in, part "Count";
+               # velocity 100 on its first beat, 70 on the others)
     part: str
     pitch: int = 0
     velocity: int = 0
@@ -118,6 +126,10 @@ class Accompanist:
         self.phrase: dict[str, tuple[float, float]] = {}
         self.restart_from = self.piano_onsets[0]  # piano chord a restart is expected at...
         self.restart_back = 0.0  # ...or up to this many beats before it
+        self.lead_in = self._lead_in(self.start_beat, self.restart_from)  # where a "go" starts the strings, if they play first
+        self.leading = False  # counted in: the strings play on their own until the pianist's first chord
+        self.clicks: list[float] = []  # beats of the count-in still to click
+        self.count_from = 0.0  # its first beat
         self.last_start = self.start_beat  # for "again"
         self.last_beat: float | None = None  # score beat of the last piano chord matched
         self.last_chord_t = -1.0
@@ -170,6 +182,8 @@ class Accompanist:
         return msg
 
     def _cue(self, t: float, cue: Cue) -> str:
+        if cue.kind == "go":
+            return self._go(t)
         if cue.kind == "pause":
             return self._pause(t)
         if cue.kind == "resume":
@@ -178,7 +192,7 @@ class Accompanist:
             self.paused = False
             bar, bib = self.score.bar_at(self.restart_from)
             return f"resume: strings come in with you at bar {bar} beat {bib:g}"
-        if not (self.waiting or self.trailing):
+        if not self._restarting():
             return f'"{cue}" ignored: only while stopped'
         if cue.kind == "again":
             target = self.last_start
@@ -193,11 +207,46 @@ class Accompanist:
             return f'"{cue}" ignored: no piano after that point'
         self._stop_sounding(t)
         self.waiting, self.trail_start, self.paused = True, None, False
+        self.leading, self.clicks = False, []
         self.restart_from, self.restart_back = first, CUE_BACK_BEATS
         self.last_start = max(target, self.start_beat)
         self.last_beat = None
+        self.lead_in = self._lead_in(self.last_start, first)
+        if self.lead_in is not None:
+            bar, bib = self.score.bar_at(self._first_string_note(self.lead_in))
+            return f"{cue}: the strings start at bar {bar} beat {bib:g}; press the pedal to count them in"
         bar, bib = self.score.bar_at(first)
         return f"{cue}: strings come in with you at bar {bar} beat {bib:g}"
+
+    @property
+    def counting(self) -> bool:
+        """Clicking the count-in."""
+        return self.leading and bool(self.clicks)
+
+    @property
+    def can_count_in(self) -> bool:
+        """Would a "go" count the strings in now? (They play first from where they wait.)"""
+        return self.waiting and not self.paused and not self.finished and self.lead_in is not None
+
+    def _go(self, t: float) -> str:
+        """Count the strings in: a bar of clicks on the beats before their first note, then they play."""
+        if not self.can_count_in:
+            return "\"go\" ignored: the strings don't play first here"
+        s = self._first_string_note(self.lead_in)
+        i = max(i for i, (b, _) in enumerate(self.bar_starts) if b <= s + 1e-9)
+        length = lambda j: (self.bar_starts[j + 1][0] if j + 1 < len(self.bar_starts) else math.inf) - self.bar_starts[j][0]
+        bar_beats = length(i)
+        if i + 1 < len(self.bar_starts) and length(i + 1) > bar_beats:  # a pickup bar: count a whole one
+            bar_beats = length(i + 1)
+        n = max(2, round(min(bar_beats, 12.0)))
+        on = self.bar_starts[i][0] + math.floor(s - self.bar_starts[i][0] + 1e-9)  # the beat the strings come in on or after
+        self.count_from = on - n
+        self.clicks = [self.count_from + k for k in range(n)]
+        self.clock.anchor(t + COUNT_DELAY_S, self.count_from)
+        self.next_note = next(i for i, x in enumerate(self.notes) if x.onset_beat >= self.lead_in)
+        self.started, self.waiting, self.leading, self.lead_in = True, False, True, None
+        bar, bib = self.score.bar_at(s)
+        return f"counting in: the strings start at bar {bar} beat {bib:g}"
 
     def _pause(self, t: float) -> str:
         """Strings stop at once and sit out, the piano ignored, until "resume" (back where you were) or a cue."""
@@ -209,6 +258,7 @@ class Accompanist:
                 self.restart_from, self.restart_back = nxt, nxt - self.last_beat + RESTART_BACK_BEATS
         self._stop_sounding(t)
         self.waiting, self.trail_start, self.paused, self.pending = True, None, True, None
+        self.leading, self.clicks, self.lead_in = False, [], None
         return 'paused: practise on your own; say "resume" or "from bar …" for the strings'
 
     # --- output -------------------------------------------------------------------------------------
@@ -228,7 +278,10 @@ class Accompanist:
         if self.trailing:
             self._trail(now, out)
             return out
-        if self._pianist_stopped(now):
+        while self.clicks and self.clock.time_of(self.clicks[0]) <= now:
+            b = self.clicks.pop(0)
+            out.append(Out(self.clock.time_of(b), "click", "Count", velocity=100 if b == self.count_from else 70, beat=b))
+        if not self.leading and self._pianist_stopped(now):
             self.trail_start = now
             # A restart may go back RESTART_BACK_BEATS from the last chord played.
             nxt = self._next_onset()
@@ -238,6 +291,8 @@ class Accompanist:
             return out
         while self.next_note < len(self.notes):
             n = self.notes[self.next_note]
+            if self.leading and n.onset_beat > self.restart_from:
+                break  # past your first chord: wait for it
             t_on = self.clock.time_of(n.onset_beat) - (GRACE_S if n.is_grace else 0.0)
             if self.last_beat is not None and n.onset_beat <= self.last_beat:
                 t_on = min(t_on, now)  # the pianist already played this beat, earlier than predicted: come in now
@@ -276,7 +331,14 @@ class Accompanist:
     # --- internals ----------------------------------------------------------------------------------
 
     def _restarting(self) -> bool:
-        return self.waiting or self.trailing
+        return self.waiting or self.trailing or self.leading
+
+    def _lead_in(self, target: float, first: float) -> float | None:
+        """`target` if the strings have notes from there to the piano's first chord `first`, else None."""
+        return target if any(target <= n.onset_beat < first for n in self.notes) else None
+
+    def _first_string_note(self, beat: float) -> float:
+        return next(n.onset_beat for n in self.notes if n.onset_beat >= beat)
 
     def _end_notes(self, now: float, out: list[Out]) -> None:
         for end, n in list(self.sounding):
@@ -346,10 +408,15 @@ class Accompanist:
             if not self.notices or not self.notices[-1][1].startswith("not sure"):
                 self.notices.append((t, "not sure where you are: play on from where you stopped, or say where to start"))
             return
-        self._stop_sounding(t)  # anything still trailing belongs to where we were
+        nxt = next((i for i, n in enumerate(self.notes) if n.onset_beat >= beat), len(self.notes))
+        if self.leading:  # your first chord after the strings' own: they play on from where they are
+            self.next_note = max(self.next_note, nxt)
+        else:
+            self._stop_sounding(t)  # anything still trailing belongs to where we were
+            self.next_note = nxt
         self.clock.anchor(t, beat)  # tempo carries over from before the stop
         self.started, self.waiting, self.trail_start = True, False, None
-        self.next_note = next((i for i, n in enumerate(self.notes) if n.onset_beat >= beat), len(self.notes))
+        self.leading, self.clicks, self.lead_in = False, [], None
         self.probation = PROBATION_CHORDS
         bar, bib = self.score.bar_at(beat)
         self.notices.append((t, f"with you at bar {bar} beat {bib:g}"))

@@ -64,6 +64,11 @@ What the app reads from the score:
   - **"Again"**: the passage you just played, from where you started it.
   - **"From bar 32"**, **"From the top"**: start there.
   - **"Pause"** and **"Resume"**: practise a passage on your own while the strings wait.
+- Where the strings play before you (a piece that opens with them, or a bar where they come in first), press the
+  sustain pedal (or say "go", or tap **Count in**). They count one bar in with clicks, at the opening tempo or the
+  tempo you last played, then play on their own until you come in; they wait for you however late you are, then
+  follow you. Without the pedal they wait for your first note and skip theirs. The clicks can be turned off in
+  Settings.
 - **Strings** sets each instrument's volume and the opening tempo. **Score** chooses which parts to show (the full
   score, or your part alone) and how large.
 - Every session is saved as a MIDI file in the app's folder in Files, with a summary of each pass.
@@ -72,8 +77,6 @@ What the app reads from the score:
 
 - **Installing:** there is no App Store or TestFlight version. With a free Apple ID the app must be rebuilt every
   7 days.
-- **Strings that start first:** the strings come in on your first note. A piece (or a restart) where the strings
-  play before the piano skips their notes until you come in; there is no count-in yet.
 - **Scores:** D.C. and D.S. aren't followed; time-wise MusicXML is refused; a piece's title can't be edited after
   adding it; a large score takes a few seconds to read, and the screen waits meanwhile. Pieces with two violins
   (piano quintets) aren't supported. A file holding several movements is read as one long piece, and "from bar

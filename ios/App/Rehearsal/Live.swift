@@ -8,7 +8,8 @@ import SwiftUI
 @MainActor @Observable
 final class Live {
     let session: Session
-    private(set) var state = "ready"  // ready | playing | trailing | waiting | paused | finished
+    private(set) var state = "ready"  // ready | counting | playing | trailing | waiting | paused | finished
+    private(set) var countIn = false  // the strings play first from where they wait: the pedal counts them in
     private(set) var keyboard: String?
     private(set) var listening = false
     private(set) var canSpeak = true  // voice cues on and allowed; when not, the hints say tap instead of say
@@ -35,12 +36,13 @@ final class Live {
     func stop() { timer?.invalidate() }
 
     /// The controls are out while the strings aren't playing with you.
-    var stopped: Bool { state != "playing" && state != "trailing" }
+    var stopped: Bool { !["playing", "trailing", "counting"].contains(state) }
     var restarting: Bool { lastCue != nil }
 
     private func poll() {
         let s = session.state()
         state = s["state"] as? String ?? "ready"
+        countIn = s["countIn"] as? Bool ?? false
         keyboard = s["keyboard"] as? String
         listening = s["mic"] as? String == "listening"
         canSpeak = Settings.voiceOn && !["denied", "unsupported"].contains(s["mic"] as? String ?? "")
@@ -52,6 +54,12 @@ final class Live {
         if !stopped, let c = s["clock"] as? [String: Double], let now = s["now"] as? Double,
            let t0 = c["t0"], let b0 = c["b0"], let spb = c["spb"], let end = s["endBeat"] as? Double {
             let b = min(b0 + (now - t0) / spb, end - 1e-3)
+            if state == "counting", let count = s["count"] as? [Double] {  // the count: a dot a beat, then the strings' bar
+                beatsInBar = Int(count[1])
+                beat = max(1, min(beatsInBar, Int((b - count[0]).rounded(.down)) + 1))
+                bar = session.score.barAt(count[0] + count[1] + 1e-9).bar
+                return
+            }
             let i = max(0, (bars.lastIndex { $0.start <= b + 1e-9 }) ?? 0)
             bar = bars[i].n
             beat = Int(b - bars[i].start) + 1

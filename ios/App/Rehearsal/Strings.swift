@@ -71,6 +71,8 @@ final class Strings: @unchecked Sendable {
     private let lock = NSLock()
     private var ticking = false
     private var rng = SystemRandomNumberGenerator()
+    private let clicker = AVAudioPlayerNode()  // the count-in
+    private let clicks: [AVAudioPCMBuffer]  // its first beat, the others
 
     /// `silent`: build the samplers but don't start the audio (screenshots in the Simulator, whose audio can hang).
     convenience init(silent: Bool = false) throws {
@@ -85,6 +87,10 @@ final class Strings: @unchecked Sendable {
     /// The sound graph on `engine`, not started (the offline renderer drives it in manual rendering mode).
     init(engine: AVAudioEngine, font: URL, style: Style = Style(), after: @escaping (Double, @escaping () -> Void) -> Void) throws {
         self.engine = engine; self.style = style; self.after = after
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+        clicks = [Self.click(format, hz: 1760), Self.click(format, hz: 1320)]
+        engine.attach(clicker)
+        engine.connect(clicker, to: engine.mainMixerNode, format: format)
         let bus = AVAudioMixerNode(), reverb = AVAudioUnitReverb()
         reverb.loadFactoryPreset(style.reverb)
         reverb.wetDryMix = style.reverbMix
@@ -140,6 +146,12 @@ final class Strings: @unchecked Sendable {
     func setVolume(_ part: String, _ v: Float) { mixers[part]?.outputVolume = max(0, min(1, v)) }
 
     func play(_ o: Out) {
+        if o.kind == "click" {
+            guard engine.isRunning else { return }
+            clicker.scheduleBuffer(clicks[o.velocity == 100 ? 0 : 1], at: nil, options: .interrupts)
+            if !clicker.isPlaying { clicker.play() }
+            return
+        }
         if let lag = style.lag[o.part], lag > 0, o.kind != "expr" {
             after(lag) { [self] in playNow(o) }
         } else {
@@ -223,6 +235,19 @@ final class Strings: @unchecked Sendable {
             let open = Float(min(max(Double(v - 40) / 87, 0), 1))
             eq.bands[0].gain = style.darkDB * (1 - open)
         }
+    }
+
+    /// A woodblock-like tick: a sine at `hz` dying away over 40 ms.
+    private static func click(_ format: AVAudioFormat, hz: Double) -> AVAudioPCMBuffer {
+        let n = AVAudioFrameCount(format.sampleRate * 0.04)
+        let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: n)!
+        buf.frameLength = n
+        let x = buf.floatChannelData![0]
+        for i in 0..<Int(n) {
+            let t = Double(i) / format.sampleRate
+            x[i] = Float(0.5 * sin(2 * .pi * hz * t) * exp(-t / 0.008))
+        }
+        return buf
     }
 
     /// After an interruption (a call, Siri) or a route change, start the engine again.

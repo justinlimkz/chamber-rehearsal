@@ -75,6 +75,11 @@ struct RehearseView: View {
                 Button { onClose() } label: { Label("Pieces", systemImage: "chevron.backward") }
                     .buttonStyle(.glass)
                     .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                if live.countIn {  // the strings play first from here: start them (as the pedal does)
+                    Button { session.cue("go") } label: { Label("Count in", systemImage: "metronome") }
+                        .buttonStyle(.glassProminent)
+                        .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+                }
                 Button { session.cue("again") } label: { Text("Again").frame(minWidth: 70) }
                     .buttonStyle(.glassProminent)
                 Button { session.cue("top") } label: { Text(compact ? "Top" : "From the top") }
@@ -159,13 +164,16 @@ struct StatusStrip: View {
 
     private var waitingLike: Bool { ["waiting", "ready"].contains(live.state) }
     private var cued: Bool { live.stopped && live.restarting && live.state != "paused" }  // paused: you're there, alone
-    private var barCaption: String { cued ? "From bar" : live.state == "ready" ? "Start at bar" : "Bar" }
+    private var barCaption: String {
+        live.state == "counting" ? "Counting in to bar" : cued ? "From bar" : live.state == "ready" ? "Start at bar" : "Bar"
+    }
     private var barColor: Color { cued ? Paper.amber : Paper.ink }
 
     private var word: String {
         if live.keyboard == nil { return "No piano" }
         switch live.state {
         case "playing": return "With you"
+        case "counting": return "Counting in"
         case "trailing": return "You stopped"
         case "paused": return "Paused"
         case "finished": return "Finished"
@@ -177,7 +185,7 @@ struct StatusStrip: View {
     private var color: Color {
         if live.keyboard == nil { return Paper.warn }
         switch live.state {
-        case "playing": return Paper.blue
+        case "playing", "counting": return Paper.blue
         case "trailing", "waiting": return Paper.amber
         default: return Paper.muted
         }
@@ -185,7 +193,11 @@ struct StatusStrip: View {
 
     private var sub: String? {
         if live.keyboard == nil { return "Plug in the piano (USB)" }
-        if live.stopped, let heard = live.heard, live.restarting { return "Heard “\(heard)”" }
+        if live.stopped, let heard = live.heard, live.restarting, !live.countIn { return "Heard “\(heard)”" }
+        if live.state == "counting" { return "The strings start after the count" }
+        if live.countIn {  // waiting where the strings play first
+            return live.canSpeak ? "The strings start · press the pedal or say “go”" : "The strings start · press the pedal or tap Count in"
+        }
         if !live.canSpeak {  // no voice cues: the buttons instead
             switch live.state {
             case "ready": return "Play to begin, or choose a bar"

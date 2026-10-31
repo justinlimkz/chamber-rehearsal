@@ -31,3 +31,8 @@ def test_pause_and_resume_phrases():
         assert voice.parse(text) == Cue("pause")
     for text in ("resume", "continue", "come back"):
         assert voice.parse(text) == Cue("resume")
+
+
+@pytest.mark.parametrize("text", ["go", "Go", "count in", "count us in"])
+def test_go(text):
+    assert voice.parse(text) == Cue("go")

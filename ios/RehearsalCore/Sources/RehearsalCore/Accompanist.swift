@@ -16,6 +16,11 @@
 // - While waiting, playing on (or going back a couple of chords) restarts them where the notes fit.
 //   Going back further needs a voice cue ("from bar 9", "from the top", "again"): after a cue they wait
 //   for the pianist's first notes there.
+//
+// Where the strings play first (from the top of the Kreutzer, from bar 9 of the Mozart): a "go" (the pianist presses
+// the sustain pedal) counts them in, one bar of clicks at the clock's tempo, and they play on their own up to your
+// first chord. Notes after it wait for you, however late you come in; your first chord then sets the clock as a
+// restart does. Without a "go", they wait for your first chord as before and skip their notes before it.
 
 import Foundation
 
@@ -42,9 +47,11 @@ let SKIP_PENALTY = 0.4  // per score chord skipped past the next expected one
 let BACK_PENALTY = 0.6  // per score chord stepped back (to undo an earlier wrong match)
 let MIN_SCORE = 0.0  // below this the chord is treated as stray notes
 
+let COUNT_DELAY_S = 0.3  // the count-in's first click, this long after the "go"
+
 /// A voice cue (voice.Cue).
 public struct Cue: Equatable, Sendable, CustomStringConvertible {
-    public var kind: String  // "bar" | "top" | "again" | "pause" (strings sit out) | "resume"
+    public var kind: String  // "bar" | "top" | "again" | "pause" (strings sit out) | "resume" | "go" (count the strings in)
     public var bar: Int = 0
     public var pickup: Bool = false  // "from the pickup to bar N"
 
@@ -56,7 +63,7 @@ public struct Cue: Equatable, Sendable, CustomStringConvertible {
         if kind == "bar" {
             return pickup ? "from the pickup to bar \(bar)" : "from bar \(bar)"
         }
-        return ["top": "from the top", "again": "again", "pause": "pause", "resume": "resume"][kind]!
+        return ["top": "from the top", "again": "again", "pause": "pause", "resume": "resume", "go": "go"][kind]!
     }
 }
 
@@ -73,7 +80,8 @@ public struct StringNote: Equatable, Sendable {
 /// A string event the sound engine should play. `time` is when it was meant to sound.
 public struct Out: Equatable, Sendable {
     public var time: Double
-    public var kind: String  // "on" | "off" | "expr" (expression, CC11, value in `velocity`)
+    public var kind: String  // "on" | "off" | "expr" (expression, CC11, value in `velocity`) | "click" (the count-in,
+                             // part "Count"; velocity 100 on its first beat, 70 on the others)
     public var part: String
     public var pitch: Int = 0
     public var velocity: Int = 0
@@ -129,6 +137,11 @@ public final class Accompanist {
     var phrase: [String: (last: Double, end: Double)] = [:]
     public private(set) var restartFrom: Double
     var restartBack = 0.0
+    public private(set) var leadIn: Double? = nil  // where a "go" starts the strings, if they play first
+    public private(set) var leading = false  // counted in: the strings play on their own until the pianist's first chord
+    var clicks: [Double] = []  // beats of the count-in still to click
+    public private(set) var countFrom = 0.0  // its first beat
+    public private(set) var countBeats = 0  // and how many
     var lastStart: Double  // for "again"
     public private(set) var lastBeat: Double? = nil  // score beat of the last piano chord matched
     var lastChordT = -1.0
@@ -179,6 +192,7 @@ public final class Accompanist {
         notes = all.map { $0.1 }
         restartFrom = pianoOnsets[0]  // piano chord a restart is expected at...
         lastStart = startBeat
+        leadIn = leadInFrom(startBeat, restartFrom)
     }
 
     // MARK: inputs
@@ -227,6 +241,7 @@ public final class Accompanist {
     }
 
     private func cueMessage(_ t: Double, _ cue: Cue) -> String {
+        if cue.kind == "go" { return go(t) }
         if cue.kind == "pause" { return pause(t) }
         if cue.kind == "resume" {
             if !paused { return "\"resume\" ignored: not paused" }
@@ -234,7 +249,7 @@ public final class Accompanist {
             let (bar, bib) = score.barAt(restartFrom)
             return "resume: strings come in with you at bar \(bar) beat \(fmtG(bib))"
         }
-        if !(waiting || trailing) {
+        if !restarting {
             return "\"\(cue)\" ignored: only while stopped"
         }
         let target: Double
@@ -252,11 +267,43 @@ public final class Accompanist {
         }
         stopSounding(t)
         waiting = true; trailStart = nil; paused = false
+        leading = false; clicks = []
         restartFrom = first; restartBack = CUE_BACK_BEATS
         lastStart = max(target, startBeat)
         lastBeat = nil
+        leadIn = leadInFrom(lastStart, first)
+        if let l = leadIn {
+            let (bar, bib) = score.barAt(firstStringNote(l))
+            return "\(cue): the strings start at bar \(bar) beat \(fmtG(bib)); press the pedal to count them in"
+        }
         let (bar, bib) = score.barAt(first)
         return "\(cue): strings come in with you at bar \(bar) beat \(fmtG(bib))"
+    }
+
+    /// Clicking the count-in.
+    public var counting: Bool { leading && !clicks.isEmpty }
+
+    /// Would a "go" count the strings in now? (They play first from where they wait.)
+    public var canCountIn: Bool { waiting && !paused && !finished && leadIn != nil }
+
+    /// Count the strings in: a bar of clicks on the beats before their first note, then they play.
+    private func go(_ t: Double) -> String {
+        guard canCountIn, let l = leadIn else { return "\"go\" ignored: the strings don't play first here" }
+        let s = firstStringNote(l)
+        let i = barStarts.lastIndex(where: { $0.0 <= s + 1e-9 })!
+        func length(_ j: Int) -> Double { (j + 1 < barStarts.count ? barStarts[j + 1].0 : .infinity) - barStarts[j].0 }
+        var barBeats = length(i)
+        if i + 1 < barStarts.count && length(i + 1) > barBeats { barBeats = length(i + 1) }  // a pickup bar: count a whole one
+        let n = max(2, Int(min(barBeats, 12.0).rounded(.toNearestOrEven)))
+        let on = barStarts[i].0 + (s - barStarts[i].0 + 1e-9).rounded(.down)  // the beat the strings come in on or after
+        countFrom = on - Double(n)
+        clicks = (0..<n).map { countFrom + Double($0) }
+        countBeats = n
+        clock.anchor(t + COUNT_DELAY_S, countFrom)
+        nextNote = notes.firstIndex(where: { $0.onsetBeat >= l })!
+        started = true; waiting = false; leading = true; leadIn = nil
+        let (bar, bib) = score.barAt(s)
+        return "counting in: the strings start at bar \(bar) beat \(fmtG(bib))"
     }
 
     /// Strings stop at once and sit out, the piano ignored, until "resume" (back where you were) or a cue.
@@ -269,6 +316,7 @@ public final class Accompanist {
         }
         stopSounding(t)
         waiting = true; trailStart = nil; paused = true; pending = nil
+        leading = false; clicks = []; leadIn = nil
         return "paused: practise on your own; say \"resume\" or \"from bar …\" for the strings"
     }
 
@@ -289,7 +337,11 @@ public final class Accompanist {
             trail(now, &out)
             return out
         }
-        if pianistStopped(now) {
+        while let b = clicks.first, clock.timeOf(b) <= now {
+            clicks.removeFirst()
+            out.append(Out(clock.timeOf(b), "click", "Count", velocity: b == countFrom ? 100 : 70, beat: b))
+        }
+        if !leading && pianistStopped(now) {
             trailStart = now
             // A restart may go back RESTART_BACK_BEATS from the last chord played.
             let nxt = nextOnset()!
@@ -301,6 +353,7 @@ public final class Accompanist {
         }
         while nextNote < notes.count {
             let n = notes[nextNote]
+            if leading && n.onsetBeat > restartFrom { break }  // past your first chord: wait for it
             var tOn = clock.timeOf(n.onsetBeat) - (n.isGrace ? GRACE_S : 0.0)
             if let lb = lastBeat, n.onsetBeat <= lb {
                 tOn = min(tOn, now)  // the pianist already played this beat, earlier than predicted: come in now
@@ -348,7 +401,14 @@ public final class Accompanist {
 
     // MARK: internals
 
-    private var restarting: Bool { waiting || trailing }
+    private var restarting: Bool { waiting || trailing || leading }
+
+    /// `target` if the strings have notes from there to the piano's first chord `first`, else nil.
+    private func leadInFrom(_ target: Double, _ first: Double) -> Double? {
+        notes.contains { target <= $0.onsetBeat && $0.onsetBeat < first } ? target : nil
+    }
+
+    private func firstStringNote(_ beat: Double) -> Double { notes.first { $0.onsetBeat >= beat }!.onsetBeat }
 
     private func endNotes(_ now: Double, _ out: inout [Out]) {
         var keep: [(end: Double, note: StringNote)] = []
@@ -444,10 +504,16 @@ public final class Accompanist {
             }
             return
         }
-        stopSounding(t)  // anything still trailing belongs to where we were
+        let nxt = notes.firstIndex(where: { $0.onsetBeat >= beat }) ?? notes.count
+        if leading {  // your first chord after the strings' own: they play on from where they are
+            nextNote = max(nextNote, nxt)
+        } else {
+            stopSounding(t)  // anything still trailing belongs to where we were
+            nextNote = nxt
+        }
         clock.anchor(t, beat)  // tempo carries over from before the stop
         started = true; waiting = false; trailStart = nil
-        nextNote = notes.firstIndex(where: { $0.onsetBeat >= beat }) ?? notes.count
+        leading = false; clicks = []; leadIn = nil
         probation = PROBATION_CHORDS
         let (bar, bib) = score.barAt(beat)
         notices.append(Notice(t: t, text: "with you at bar \(bar) beat \(fmtG(bib))"))
