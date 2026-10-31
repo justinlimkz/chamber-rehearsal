@@ -172,14 +172,14 @@ final class Session: @unchecked Sendable {
                 : acc.waiting ? (acc.started ? "waiting" : "ready") : acc.counting ? "counting" : "playing"
             // where they'll start: the strings' first notes if they play first, else your first chord
             let restart: Double? = ["waiting", "ready", "paused"].contains(state) ? acc.leadIn ?? acc.restartFrom
-                : state == "counting" ? acc.countFrom + Double(acc.countBeats) : nil
+                : state == "counting" ? acc.countFrom + Double(acc.countBeats) * acc.countUnit : nil
             let notices = (acc.notices + extraNotices).sorted { $0.t < $1.t }.suffix(5).map { [$0.t, $0.text] as [Any] }
             return [
                 "state": state, "keyboard": rig.keyboard.name as Any, "bpm": 60 / acc.clock.spb,
                 "mic": rig.voice.state, "heard": restart != nil ? heard as Any : NSNull(),
                 "notices": notices, "lastCue": restart != nil ? view.lastCue as Any : NSNull(),
                 "restartBeat": restart as Any, "lastBeat": acc.lastBeat as Any, "endBeat": min(acc.endBeat, 1e9),
-                "countIn": acc.canCountIn, "count": [acc.countFrom, Double(acc.countBeats)],
+                "countIn": acc.canCountIn, "count": [acc.countFrom, Double(acc.countBeats), acc.countUnit],
                 "clock": ["t0": acc.clock.t0, "b0": acc.clock.b0, "spb": acc.clock.spb], "now": now,
                 "lastPass": passes.last.map { $0.json(score) } as Any, "furthestBeat": furthest as Any,
             ]

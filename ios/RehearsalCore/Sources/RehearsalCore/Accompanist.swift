@@ -142,6 +142,7 @@ public final class Accompanist {
     var clicks: [Double] = []  // beats of the count-in still to click
     public private(set) var countFrom = 0.0  // its first beat
     public private(set) var countBeats = 0  // and how many
+    public private(set) var countUnit = 1.0  // beats between clicks: a quarter, or an eighth in 3/8, 5/8, ...
     var lastStart: Double  // for "again"
     public private(set) var lastBeat: Double? = nil  // score beat of the last piano chord matched
     var lastChordT = -1.0
@@ -294,10 +295,12 @@ public final class Accompanist {
         func length(_ j: Int) -> Double { (j + 1 < barStarts.count ? barStarts[j + 1].0 : .infinity) - barStarts[j].0 }
         var barBeats = length(i)
         if i + 1 < barStarts.count && length(i + 1) > barBeats { barBeats = length(i + 1) }  // a pickup bar: count a whole one
-        let n = max(2, Int(min(barBeats, 12.0).rounded(.toNearestOrEven)))
-        let on = barStarts[i].0 + (s - barStarts[i].0 + 1e-9).rounded(.down)  // the beat the strings come in on or after
-        countFrom = on - Double(n)
-        clicks = (0..<n).map { countFrom + Double($0) }
+        let unit = abs(barBeats - barBeats.rounded(.toNearestOrEven)) < 1e-6 ? 1.0 : 0.5  // a bar of eighths (3/8): count eighths
+        let n = max(2, Int((min(barBeats, 12.0) / unit).rounded(.toNearestOrEven)))
+        let start = barStarts[i].0
+        let on = start + ((s - start) / unit + 1e-9).rounded(.down) * unit  // the click the strings come in on or after
+        countFrom = on - Double(n) * unit; countUnit = unit
+        clicks = (0..<n).map { countFrom + Double($0) * unit }
         countBeats = n
         clock.anchor(t + COUNT_DELAY_S, countFrom)
         nextNote = notes.firstIndex(where: { $0.onsetBeat >= l })!

@@ -130,6 +130,7 @@ class Accompanist:
         self.leading = False  # counted in: the strings play on their own until the pianist's first chord
         self.clicks: list[float] = []  # beats of the count-in still to click
         self.count_from = 0.0  # its first beat
+        self.count_unit = 1.0  # beats between clicks: a quarter, or an eighth in 3/8, 5/8, ...
         self.last_start = self.start_beat  # for "again"
         self.last_beat: float | None = None  # score beat of the last piano chord matched
         self.last_chord_t = -1.0
@@ -238,10 +239,12 @@ class Accompanist:
         bar_beats = length(i)
         if i + 1 < len(self.bar_starts) and length(i + 1) > bar_beats:  # a pickup bar: count a whole one
             bar_beats = length(i + 1)
-        n = max(2, round(min(bar_beats, 12.0)))
-        on = self.bar_starts[i][0] + math.floor(s - self.bar_starts[i][0] + 1e-9)  # the beat the strings come in on or after
-        self.count_from = on - n
-        self.clicks = [self.count_from + k for k in range(n)]
+        unit = 1.0 if abs(bar_beats - round(bar_beats)) < 1e-6 else 0.5  # a bar of eighths (3/8): count eighths
+        n = max(2, round(min(bar_beats, 12.0) / unit))
+        start = self.bar_starts[i][0]
+        on = start + math.floor((s - start) / unit + 1e-9) * unit  # the click the strings come in on or after
+        self.count_from, self.count_unit = on - n * unit, unit
+        self.clicks = [self.count_from + k * unit for k in range(n)]
         self.clock.anchor(t + COUNT_DELAY_S, self.count_from)
         self.next_note = next(i for i, x in enumerate(self.notes) if x.onset_beat >= self.lead_in)
         self.started, self.waiting, self.leading, self.lead_in = True, False, True, None

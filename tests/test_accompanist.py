@@ -207,3 +207,13 @@ def test_a_strings_first_opening_can_be_counted_in_from_the_start():
     kreutzer = Score(Path(__file__).parent / "musicxml" / "outside" / "beethoven-kreutzer-i.mxl")
     acc = Accompanist(kreutzer, 1, 30)
     assert acc.lead_in == acc.start_beat and acc.can_count_in  # the violin's solo opening
+
+
+def test_a_bar_of_eighths_is_counted_in_eighths():
+    from pathlib import Path
+
+    larghetto = Score(Path(__file__).parent.parent / "scores" / "mozart-k493-ii.mxl")  # 3/8
+    acc = Accompanist(larghetto, 1, 20)
+    acc.on_cue(0.0, Cue("bar", 11))
+    acc.on_cue(1.0, Cue("go"))
+    assert acc.clicks == [13.5, 14.0, 14.5] and acc.count_from + 3 * acc.count_unit == acc.notes[acc.next_note].onset_beat

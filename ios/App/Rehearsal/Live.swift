@@ -54,10 +54,10 @@ final class Live {
         if !stopped, let c = s["clock"] as? [String: Double], let now = s["now"] as? Double,
            let t0 = c["t0"], let b0 = c["b0"], let spb = c["spb"], let end = s["endBeat"] as? Double {
             let b = min(b0 + (now - t0) / spb, end - 1e-3)
-            if state == "counting", let count = s["count"] as? [Double] {  // the count: a dot a beat, then the strings' bar
+            if state == "counting", let count = s["count"] as? [Double] {  // the count: a dot a click, then the strings' bar
                 beatsInBar = Int(count[1])
-                beat = max(1, min(beatsInBar, Int((b - count[0]).rounded(.down)) + 1))
-                bar = session.score.barAt(count[0] + count[1] + 1e-9).bar
+                beat = max(1, min(beatsInBar, Int(((b - count[0]) / count[2]).rounded(.down)) + 1))
+                bar = session.score.barAt(count[0] + count[1] * count[2] + 1e-9).bar
                 return
             }
             let i = max(0, (bars.lastIndex { $0.start <= b + 1e-9 }) ?? 0)
