@@ -1,0 +1,33 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    name: Python engine (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run pytest -q
+
+  swift:
+    name: Swift engine (fixture-check, import-check)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift run -c release --package-path ios/RehearsalCore fixture-check
+      - run: swift run -c release --package-path ios/RehearsalCore import-check
+
+  app:
+    name: App builds
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - run: >
+          xcodebuild -project ios/App/Rehearsal.xcodeproj -scheme Rehearsal
+          -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+          | tail -20
+        shell: bash -o pipefail {0}
