@@ -15,7 +15,9 @@ final class Voice: @unchecked Sendable {
     static let settle = 0.6  // seconds without a new result before a bar cue counts
 
     var onCue: (Cue, String) -> Void = { _, _ in }  // the cue and the words heard
-    private(set) var state = "off"  // "off" (no permission) | "asleep" | "listening"
+    // "off" (not started yet) | "denied" (microphone or speech recognition refused) | "unsupported" (no on-device
+    // recognition here) | "asleep" | "listening"
+    private(set) var state = "off"
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let engine = AVAudioEngine()
@@ -31,21 +33,20 @@ final class Voice: @unchecked Sendable {
     /// recogniser while `listen(true)`).
     func start() {
         SFSpeechRecognizer.requestAuthorization { status in
-            guard status == .authorized else { return }
+            guard status == .authorized else { return self.queue.async { self.state = "denied" } }
             AVAudioApplication.requestRecordPermission { granted in
-                guard granted else { return }
-                self.queue.async { self.startMicrophone() }
+                self.queue.async { if granted { self.startMicrophone() } else { self.state = "denied" } }
             }
         }
     }
 
     private func startMicrophone() {
-        guard let recognizer, recognizer.supportsOnDeviceRecognition else { return }
+        guard let recognizer, recognizer.supportsOnDeviceRecognition else { state = "unsupported"; return }
         let input = engine.inputNode
         input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { [weak self] buffer, _ in
             self?.request?.append(buffer)
         }
-        do { try engine.start() } catch { return }
+        do { try engine.start() } catch { state = "unsupported"; return }
         state = "asleep"
         if wanted { begin() }
     }
@@ -54,7 +55,7 @@ final class Voice: @unchecked Sendable {
     func listen(_ on: Bool) {
         queue.async {
             self.wanted = on
-            guard self.state != "off" else { return }
+            guard self.state == "asleep" || self.state == "listening" else { return }
             if on && self.task == nil { self.begin() }
             if !on && self.task != nil { self.end() }
         }

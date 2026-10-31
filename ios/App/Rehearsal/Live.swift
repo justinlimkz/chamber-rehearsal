@@ -11,6 +11,7 @@ final class Live {
     private(set) var state = "ready"  // ready | playing | trailing | waiting | paused | finished
     private(set) var keyboard: String?
     private(set) var listening = false
+    private(set) var canSpeak = true  // voice cues on and allowed; when not, the hints say tap instead of say
     private(set) var heard: String?
     private(set) var lastCue: String?
     private(set) var bpm = 63.0
@@ -42,6 +43,7 @@ final class Live {
         state = s["state"] as? String ?? "ready"
         keyboard = s["keyboard"] as? String
         listening = s["mic"] as? String == "listening"
+        canSpeak = Settings.voiceOn && !["denied", "unsupported"].contains(s["mic"] as? String ?? "")
         heard = s["heard"] as? String
         lastCue = s["lastCue"] as? String
         bpm = s["bpm"] as? Double ?? bpm

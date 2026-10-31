@@ -73,4 +73,28 @@ for f in files {
     }
 }
 print(failed == 0 ? "all \(files.count) imports match" : "\(failed) of \(files.count) imports differ")
-exit(failed == 0 ? 0 : 1)
+
+// Files the app must refuse, each with its reason (tests/musicxml/refused).
+let refused: [String: MusicXMLError] = [
+    "empty": .unreadable("the file is empty"),
+    "not-a-score": .unreadable("it isn't valid XML"),
+    "no-piano": .noPiano,
+    "piano-only": .noStrings,
+    "timewise": .notPartwise,
+]
+var wrong = 0
+for (name, want) in refused.sorted(by: { $0.key < $1.key }) {
+    let url = URL(fileURLWithPath: "tests/musicxml/refused/\(name).musicxml")
+    do {
+        _ = try ScoreImport(data: Data(contentsOf: url))
+        wrong += 1
+        print("FAIL refused/\(name): imported")
+    } catch let e as MusicXMLError where e == want {
+        print("PASS refused/\(name)")
+    } catch {
+        wrong += 1
+        print("FAIL refused/\(name): \(error)")
+    }
+}
+print(wrong == 0 ? "all \(refused.count) bad files refused" : "\(wrong) of \(refused.count) bad files not refused as they should be")
+exit(failed == 0 && wrong == 0 ? 0 : 1)

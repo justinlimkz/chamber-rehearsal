@@ -16,7 +16,8 @@ hand.
 *Left: the library. Right: the rehearse screen, waiting to start from bar 32 (outlined). The controls show only
 while the strings are stopped.*
 
-> **Status:** a working prototype, used daily by one pianist. Expect rough edges.
+> **Status:** a working prototype, used daily by one pianist. Expect rough edges; the known ones are listed under
+> [Known limitations](#known-limitations).
 
 ## What you need
 
@@ -66,6 +67,19 @@ What the app reads from the score:
   score, or your part alone) and how large.
 - Every session is saved as a MIDI file in the app's folder in Files, with a summary of each pass.
 
+## Known limitations
+
+- **Installing:** there is no App Store or TestFlight version. With a free Apple ID the app must be rebuilt every
+  7 days.
+- **Strings that start first:** the strings come in on your first note. A piece (or a restart) where the strings
+  play before the piano skips their notes until you come in; there is no count-in yet.
+- **Scores:** D.C. and D.S. aren't followed; time-wise MusicXML is refused; a piece's title can't be edited after
+  adding it; a large score takes a few seconds to read, and the screen waits meanwhile. Pieces with two violins
+  (piano quintets) aren't supported. Trills and turns are played as written notes only (no ornaments); the two
+  Mozart movements were read from a scan and have no slurs, grace notes or ornaments.
+- **Tested with:** one pianist, a Roland FP-30, an iPad Pro, three piano quartet movements, and voice cues from
+  synthetic speech only.
+
 ## The Mac tools
 
 The engine was written in Python first. That version is kept as the reference the iPad's Swift engine is checked
@@ -88,9 +102,12 @@ swift run --package-path ios/RehearsalCore fixture-check              # the iPad
 swift run --package-path ios/RehearsalCore import-check               # the iPad reads MusicXML as the Mac does
 ```
 
+GitHub runs all three, and builds the app, on every push (`.github/workflows/checks.yml`).
+
 `fixture-check` runs recorded takes and sessions through the Swift engine and compares every note it plays with
 the Python engine's output. `import-check` reads test scores (`tests/musicxml/`, and the scores in `scores/`) the
-iPad's way and compares the notes, bars and dynamics with the Mac's reading. To regenerate both sets of
+iPad's way and compares the notes, bars and dynamics with the Mac's reading, and checks that broken files
+(`tests/musicxml/refused/`) are refused with the right reason. To regenerate both sets of
 expected results:
 `uv run rehearsal bundle --fixtures ios/Fixtures --import-fixtures ios/ImportFixtures` (the takes it replays
 are kept out of the repository, so this works only where they are).

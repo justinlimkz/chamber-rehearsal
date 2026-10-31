@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var lastKey: (note: Int, velocity: Int)?
     @State private var volume: Float = 1
     @State private var output = ""
+    @State private var voiceState = "off"
     @AppStorage(Settings.voice) private var voice = true
     @AppStorage(Settings.keepAwake) private var keepAwake = true
 
@@ -34,8 +35,19 @@ struct SettingsView: View {
                 }
                 Section {
                     Toggle("Restart by voice", isOn: $voice)
+                    if voice && voiceState == "denied" {
+                        Button("Allow the microphone and speech recognition") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                        }
+                    }
                 } header: { Text("Voice") } footer: {
-                    Text("Listens only while the strings are stopped: “from bar nine”, “again”, “from the top”, “pause”, “resume”. Works offline, on the iPad.")
+                    if voice && voiceState == "denied" {
+                        Text("Voice cues need the microphone and speech recognition, which were turned off for Rehearsal. Turn both on in Settings, then open the app again. Until then, use the buttons.")
+                    } else if voice && voiceState == "unsupported" {
+                        Text("This iPad can't recognise speech on the device, so voice cues are off. Use the buttons.")
+                    } else {
+                        Text("Listens only while the strings are stopped: “from bar nine”, “again”, “from the top”, “pause”, “resume”. Works offline, on the iPad.")
+                    }
                 }
                 Section("Screen") {
                     Toggle("Keep the screen on while rehearsing", isOn: $keepAwake)
@@ -53,6 +65,7 @@ struct SettingsView: View {
                 while !Task.isCancelled {
                     keyboard = rig.keyboard.name
                     lastKey = rig.lastKey
+                    voiceState = rig.voice.state
                     output = AVAudioSession.sharedInstance().currentRoute.outputs.first?.portName ?? "–"
                     try? await Task.sleep(for: .milliseconds(200))
                 }

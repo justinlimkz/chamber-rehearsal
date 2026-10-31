@@ -29,7 +29,8 @@ final class XMLNode {
         p.shouldResolveExternalEntities = false
         p.delegate = b
         guard p.parse(), let root = b.root else {
-            throw MusicXMLError.unreadable(p.parserError?.localizedDescription ?? "not XML")
+            let line = p.lineNumber > 1 ? ", line \(p.lineNumber)" : ""
+            throw MusicXMLError.unreadable(data.isEmpty ? "the file is empty" : "it isn't valid XML\(line)")
         }
         return root
     }
@@ -54,6 +55,7 @@ public enum MusicXMLError: LocalizedError, Equatable {
     case notPartwise
     case noParts
     case noPiano
+    case noStrings
     case twoParts(String)
 
     public var errorDescription: String? {
@@ -62,6 +64,7 @@ public enum MusicXMLError: LocalizedError, Equatable {
         case .notPartwise: "This MusicXML is laid out time-wise; export it again from your notation program (the usual “MusicXML” setting is part-wise)."
         case .noParts: "This MusicXML has no parts the app can play."
         case .noPiano: "The app follows a piano part, and this score has none (or it isn't named “Piano”)."
+        case .noStrings: "This score has a piano part but no violin, viola or cello part (or they aren't named so), so there's nothing for the strings to play."
         case .twoParts(let what): "This score has two \(what) parts; the app plays one of each string instrument."
         }
     }
@@ -107,7 +110,9 @@ public struct MusicXMLScore: Sendable {
 
     public init(data: Data) throws {
         let root = try XMLNode.parse(try Self.text(data))
-        guard root.name == "score-partwise" else { throw MusicXMLError.notPartwise }
+        guard root.name == "score-partwise" else {
+            throw root.name == "score-timewise" ? MusicXMLError.notPartwise : MusicXMLError.unreadable("it isn't a score")
+        }
         let workTitle = root.child("work")?.value("work-title").flatMap { $0.isEmpty ? nil : $0 }
         let movementTitle = root.value("movement-title").flatMap { $0.isEmpty ? nil : $0 }
         let credit = root.all("credit").first { $0.value("credit-type") == "title" }?.value("credit-words")

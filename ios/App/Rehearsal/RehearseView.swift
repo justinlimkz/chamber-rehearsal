@@ -186,6 +186,15 @@ struct StatusStrip: View {
     private var sub: String? {
         if live.keyboard == nil { return "Plug in the piano (USB)" }
         if live.stopped, let heard = live.heard, live.restarting { return "Heard “\(heard)”" }
+        if !live.canSpeak {  // no voice cues: the buttons instead
+            switch live.state {
+            case "ready": return "Play to begin, or choose a bar"
+            case "waiting": return live.restarting ? "Play from there" : "Choose where to start, or play on"
+            case "paused": return "On your own · tap Resume when you're ready"
+            case "finished": return "Again or From the top starts a new run"
+            default: return nil
+            }
+        }
         switch live.state {
         case "ready": return "Play to begin, or say a bar"
         case "waiting": return live.restarting ? "Play from there" : "Say where to start, or play on"

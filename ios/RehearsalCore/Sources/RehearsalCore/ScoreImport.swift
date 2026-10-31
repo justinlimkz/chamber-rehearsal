@@ -21,6 +21,7 @@ public struct ScoreImport {
             parts[name] = p
         }
         guard parts["Piano"] != nil else { throw MusicXMLError.noPiano }
+        guard parts.count > 1 else { throw MusicXMLError.noStrings }
         self.parts = parts
         self.ignored = ignored
     }
