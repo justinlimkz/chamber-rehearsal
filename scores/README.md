@@ -44,3 +44,19 @@ ornaments and grace notes. Not yet proofread by a person. Where to look first (b
 | 244 | Piano LH | B♭ E♭ G (the natural cancels a G♭). |
 | throughout | | Ties vs slurs between equal notes: read as ties. |
 | 18, 22, 93, 165, 169, 239 | violin, viola | p under the second eighth (beat 1) as printed, not on the downbeat. |
+
+## Mozart, Piano Quartet in E-flat major, K. 493, II. Larghetto
+
+`mozart-k493-ii.mxl` (131 bars, 3/8; both halves repeat, so 247 bars played): the same scan, pages 16-20, made the
+same way. The two readings differed in 12 of 524 part-bars, each settled from the scan; dynamics (p, pp, f, fp, sf,
+cresc., decresc., legato: 149 markings, plus the tempo word) read by a second pass. Starts at ♩ = 42 (an eighth at 84; `.piece.yaml`).
+Turns, grace notes and slurs are left out (the strings don't play the turns). Not yet proofread. Where to look first:
+
+| Bar | Part | What |
+|---|---|---|
+| 81 | Viola | Second note C4, or C♯4 (a speck before it that may be a sharp). |
+| 6, 8, 40, 42, 70, 75, 77 | violin, piano RH | A dotted sixteenth then two 64ths: the beams are a solid block in the print; the rhythm is the one that fills the bar. |
+| 111, 113 | Piano RH | Dotted 32nd, 64th, sixteenth (the two readings differed; settled by the beam count). |
+| 28 | Piano LH | A♭ B♭ D♮: the natural sits between B and D. |
+| 117, 121 | Piano LH | E♭ G♭ A♮ C: crowded accidentals. |
+| throughout | | Ties vs slurs between equal notes: read as ties. |

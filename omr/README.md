@@ -70,3 +70,6 @@ on the Schumann page vs 93-99%), and two readings plus a look at their disagreem
 not obsolete. Dynamics were added that way (2026-10-31): one Opus pass per page reading only the markings into JSON
 (`directions.py` writes them in at their beats), about 1-5 minutes and 60-70k tokens a page. Still missing: slurs and
 ornaments.
+
+The Larghetto (2026-10-31), 5 pages, 3/8, with 64th-note figures and turns: the pairs agreed on 512 of 524
+part-bars (98%); about 2.2M tokens and 20 minutes wall clock for the readings, 6 minutes for the dynamics.

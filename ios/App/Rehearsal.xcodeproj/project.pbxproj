@@ -11,6 +11,7 @@
 		A10000000000000000000102 /* score.html in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000202 /* score.html */; };
 		A10000000000000000000103 /* schumann-op47-iii in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000203 /* schumann-op47-iii */; };
 		A10000000000000000000113 /* mozart-k493-i in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000213 /* mozart-k493-i */; };
+		A10000000000000000000114 /* mozart-k493-ii in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000214 /* mozart-k493-ii */; };
 		A10000000000000000000104 /* strings.sf2 in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000204 /* strings.sf2 */; };
 		A10000000000000000000105 /* verovio-toolkit-wasm.js in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000205 /* verovio-toolkit-wasm.js */; };
 /* End PBXBuildFile section */
@@ -20,6 +21,7 @@
 		A10000000000000000000202 /* score.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; name = score.html; path = ../Web/score.html; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000203 /* schumann-op47-iii */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "schumann-op47-iii"; path = "../Bundles/schumann-op47-iii"; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000213 /* mozart-k493-i */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "mozart-k493-i"; path = "../Bundles/mozart-k493-i"; sourceTree = SOURCE_ROOT; };
+		A10000000000000000000214 /* mozart-k493-ii */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "mozart-k493-ii"; path = "../Bundles/mozart-k493-ii"; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000204 /* strings.sf2 */ = {isa = PBXFileReference; lastKnownFileType = file; name = strings.sf2; path = ../Sounds/strings.sf2; sourceTree = SOURCE_ROOT; };
 		A10000000000000000000205 /* verovio-toolkit-wasm.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; name = "verovio-toolkit-wasm.js"; path = "../Web/verovio-toolkit-wasm.js"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
@@ -59,6 +61,7 @@
 				A10000000000000000000202 /* score.html */,
 				A10000000000000000000203 /* schumann-op47-iii */,
 				A10000000000000000000213 /* mozart-k493-i */,
+				A10000000000000000000214 /* mozart-k493-ii */,
 				A10000000000000000000204 /* strings.sf2 */,
 				A10000000000000000000205 /* verovio-toolkit-wasm.js */,
 			);
@@ -139,6 +142,7 @@
 				A10000000000000000000102 /* score.html in Resources */,
 				A10000000000000000000103 /* schumann-op47-iii in Resources */,
 				A10000000000000000000113 /* mozart-k493-i in Resources */,
+				A10000000000000000000114 /* mozart-k493-ii in Resources */,
 				A10000000000000000000104 /* strings.sf2 in Resources */,
 				A10000000000000000000105 /* verovio-toolkit-wasm.js in Resources */,
 			);
