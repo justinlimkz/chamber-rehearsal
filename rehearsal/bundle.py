@@ -84,6 +84,8 @@ def fixtures(score: Score, out: Path, takes: list[Path], sessions: list[Path]) -
         cases.append(("pause", events, 1, 16, cues))
         events, cues = _count_in_take(score, midi_io.read_take(takes[0]))
         cases.append(("count-in", events, 1, 16, cues))
+        events, cues = _count_in_take(score, midi_io.read_take(takes[0]), late_s=3.0)
+        cases.append(("count-in-late", events, 1, 16, cues))
     for p in sessions:
         piano = session.read(p)[0]
         cases.append(("session-" + p.stem, piano, 1, 132, []))
@@ -120,14 +122,16 @@ def _pause_take(score: Score, events: list[midi_io.MidiEvent]) -> tuple[list[mid
                                       (Cue("pause"), 9, 13), (Cue("bar", 3), 3, 7)])
 
 
-def _count_in_take(score: Score, events: list[midi_io.MidiEvent]) -> tuple[list[midi_io.MidiEvent], list[tuple[float, Cue]]]:
+def _count_in_take(score: Score, events: list[midi_io.MidiEvent],
+                   late_s: float = 0.02) -> tuple[list[midi_io.MidiEvent], list[tuple[float, Cue]]]:
     """Where the strings play first: bars 1-4, stop; "from bar 3" (three beats of strings before the piano), "go"
-    2 s later, and bars 3-6 from the piano's first chord, coming in 20 ms after the strings expect it."""
+    2 s later, and bars 3-6 from the piano's first chord, coming in `late_s` after the strings expect it (3 s: they
+    hold at your entry first)."""
     out, cues = _rehearsal(score, events, [(None, 1, 5), (Cue("bar", 3), None, None)])
     t_go = cues[-1][0] + 2.0
     cues.append((t_go, Cue("go")))
     probe = simulate.run(score, out, 1, 16, clock=BeatClock(spb=60 / 63.0), cues=cues).accompanist
-    entry = probe.clock.time_of(probe.restart_from) + 0.02
+    entry = probe.clock.time_of(probe.restart_from) + late_s
     truth = reference.align(score, events, 1, 16).truth
     bar_start = {bar: b for b, bar in reversed(score.bar_starts())}
     at = lambda bar: min(t for t, b in truth if b >= bar_start[bar])

@@ -217,3 +217,42 @@ def test_a_bar_of_eighths_is_counted_in_eighths():
     acc.on_cue(0.0, Cue("bar", 11))
     acc.on_cue(1.0, Cue("go"))
     assert acc.clicks == [13.5, 14.0, 14.5] and acc.count_from + 3 * acc.count_unit == acc.notes[acc.next_note].onset_beat
+
+
+def test_counted_in_with_no_piano_the_strings_hold_at_your_entry(score):
+    acc = Accompanist(score, 1, 16)
+    acc.on_cue(0.0, Cue("bar", 3))
+    acc.on_cue(1.0, Cue("go"))
+    entry = acc.clock.time_of(acc.restart_from)
+    run_until(acc, 1.0, entry + 0.5)
+    assert acc.leading and not acc.holding  # at your entry, not yet late
+    held = acc.clock.time_of(acc.restart_from + 2.0)
+    out = run_until(acc, entry + 0.5, held)
+    assert acc.holding and not any(o.kind == "on" for o in out)
+    assert any("wait for you at bar" in text for _, text in acc.notices)
+    assert not any("stopped" in text for _, text in acc.notices)
+    assert "paused" in acc.on_cue(held, Cue("pause"))  # the controls work from here
+    assert acc.paused and not acc.leading and not acc.holding
+
+
+def test_holding_strings_come_in_with_a_late_first_chord(score):
+    acc = Accompanist(score, 1, 16)
+    acc.on_cue(0.0, Cue("bar", 3))
+    acc.on_cue(1.0, Cue("go"))
+    t = acc.clock.time_of(acc.restart_from + 4.0)
+    run_until(acc, 1.0, t)
+    assert acc.holding
+    entry_beat = acc.restart_from
+    play_chord(acc, t, entry_beat)
+    later = [o for o in run_until(acc, t, t + 1.0) if o.kind == "on"]
+    assert later and all(o.beat > entry_beat for o in later) and not acc.holding
+
+
+def test_a_cue_while_holding_starts_again(score):
+    acc = Accompanist(score, 1, 16)
+    acc.on_cue(0.0, Cue("bar", 3))
+    acc.on_cue(1.0, Cue("go"))
+    t = acc.clock.time_of(acc.restart_from + 4.0)
+    run_until(acc, 1.0, t)
+    assert "press the pedal" in acc.on_cue(t, Cue("again"))
+    assert acc.waiting and acc.can_count_in and not acc.holding

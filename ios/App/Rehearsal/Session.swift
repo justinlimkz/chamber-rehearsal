@@ -97,6 +97,10 @@ final class Session: @unchecked Sendable {
     func cue(_ cue: Cue, heard words: String? = nil) {
         let t = now()
         lock.withLock {
+            if cue.kind == "go" && rig.keyboard.name == nil {  // no piano to come in with: the strings would wait for good
+                view.lastCue = "\"go\" ignored: plug in the piano first"
+                return
+            }
             if acc.finished {  // played to the end: a fresh run, with the tempo it ended in
                 acc = Accompanist(score: score, firstBar: firstBar, lastBar: lastBar, clock: BeatClock(spb: acc.clock.spb))
             }
@@ -169,7 +173,8 @@ final class Session: @unchecked Sendable {
         let now = self.now()
         return lock.withLock {
             let state = acc.finished ? "finished" : acc.trailing ? "trailing" : acc.paused ? "paused"
-                : acc.waiting ? (acc.started ? "waiting" : "ready") : acc.counting ? "counting" : "playing"
+                : acc.waiting ? (acc.started ? "waiting" : "ready") : acc.holding ? "waiting"  // counted in, at your entry
+                : acc.counting ? "counting" : "playing"
             // where they'll start: the strings' first notes if they play first, else your first chord
             let restart: Double? = ["waiting", "ready", "paused"].contains(state) ? acc.leadIn ?? acc.restartFrom
                 : state == "counting" ? acc.countFrom + Double(acc.countBeats) * acc.countUnit : nil

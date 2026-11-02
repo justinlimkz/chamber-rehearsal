@@ -20,7 +20,9 @@
 // Where the strings play first (from the top of the Kreutzer, from bar 9 of the Mozart): a "go" (the pianist presses
 // the sustain pedal) counts them in, one bar of clicks at the clock's tempo, and they play on their own up to your
 // first chord. Notes after it wait for you, however late you come in; your first chord then sets the clock as a
-// restart does. Without a "go", they wait for your first chord as before and skip their notes before it.
+// restart does. A beat and a half past your entry with no chord, they are holding: still waiting for you there, and
+// a cue or "pause" works as when they are stopped. Without a "go", they wait for your first chord as before and skip
+// their notes before it.
 
 import Foundation
 
@@ -139,6 +141,7 @@ public final class Accompanist {
     var restartBack = 0.0
     public private(set) var leadIn: Double? = nil  // where a "go" starts the strings, if they play first
     public private(set) var leading = false  // counted in: the strings play on their own until the pianist's first chord
+    public private(set) var holding = false  // ...and have played up to it: they wait there for you (the app shows its controls)
     var clicks: [Double] = []  // beats of the count-in still to click
     public private(set) var countFrom = 0.0  // its first beat
     public private(set) var countBeats = 0  // and how many
@@ -268,7 +271,7 @@ public final class Accompanist {
         }
         stopSounding(t)
         waiting = true; trailStart = nil; paused = false
-        leading = false; clicks = []
+        leading = false; clicks = []; holding = false
         restartFrom = first; restartBack = CUE_BACK_BEATS
         lastStart = max(target, startBeat)
         lastBeat = nil
@@ -304,7 +307,7 @@ public final class Accompanist {
         countBeats = n
         clock.anchor(t + COUNT_DELAY_S, countFrom)
         nextNote = notes.firstIndex(where: { $0.onsetBeat >= l })!
-        started = true; waiting = false; leading = true; leadIn = nil
+        started = true; waiting = false; leading = true; leadIn = nil; holding = false
         let (bar, bib) = score.barAt(s)
         return "counting in: the strings start at bar \(bar) beat \(fmtG(bib))"
     }
@@ -319,7 +322,7 @@ public final class Accompanist {
         }
         stopSounding(t)
         waiting = true; trailStart = nil; paused = true; pending = nil
-        leading = false; clicks = []; leadIn = nil
+        leading = false; clicks = []; leadIn = nil; holding = false
         return "paused: practise on your own; say \"resume\" or \"from bar …\" for the strings"
     }
 
@@ -376,6 +379,11 @@ public final class Accompanist {
             out.append(Out(tOn, "on", n.part, pitch: n.pitch, velocity: velocity, beat: n.onsetBeat))
             sounding.append((n.onsetBeat + n.durationBeat, n))
             nextNote += 1
+        }
+        if heldAtEntry(now) {
+            holding = true
+            let (bar, bib) = score.barAt(restartFrom)
+            notices.append(Notice(t: now, text: "the strings wait for you at bar \(bar) beat \(fmtG(bib))"))
         }
         if levels != nil {  // hairpins go on through held notes
             let beat = clock.beatAt(now)
@@ -516,7 +524,7 @@ public final class Accompanist {
         }
         clock.anchor(t, beat)  // tempo carries over from before the stop
         started = true; waiting = false; trailStart = nil
-        leading = false; clicks = []; leadIn = nil
+        leading = false; clicks = []; leadIn = nil; holding = false
         probation = PROBATION_CHORDS
         let (bar, bib) = score.barAt(beat)
         notices.append(Notice(t: t, text: "with you at bar \(bar) beat \(fmtG(bib))"))
@@ -609,6 +617,13 @@ public final class Accompanist {
         }
         let on = clock.timeOf(n.onsetBeat), end = clock.timeOf(n.onsetBeat + n.durationBeat)
         return on + max(0.05, (end - on) * LEGATO)
+    }
+
+    /// Counted in, the strings have played everything up to your first chord, and it is a beat and a half late.
+    private func heldAtEntry(_ now: Double) -> Bool {
+        if !leading || holding || !clicks.isEmpty || !sounding.isEmpty { return false }
+        if nextNote < notes.count && notes[nextNote].onsetBeat <= restartFrom { return false }
+        return clock.beatAt(now) > restartFrom + CARRY_BEATS
     }
 
     private func pianistStopped(_ now: Double) -> Bool {

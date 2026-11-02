@@ -78,6 +78,7 @@ struct RehearseView: View {
                 if live.countIn {  // the strings play first from here: start them (as the pedal does)
                     Button { session.cue("go") } label: { Label("Count in", systemImage: "metronome") }
                         .buttonStyle(.glassProminent)
+                        .disabled(live.keyboard == nil)  // no piano: the status strip says to plug it in
                         .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
                 }
                 Button { session.cue("again") } label: { Text("Again").frame(minWidth: 70) }
