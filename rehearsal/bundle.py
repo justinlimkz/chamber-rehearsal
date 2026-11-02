@@ -41,6 +41,8 @@ def score_data(score: Score) -> dict:
     }
     if score.tempo:
         data["tempo"] = score.tempo  # quarter notes a minute for the strings' first notes
+    if len({q for _, q in score.tempos}) > 1:
+        data["tempos"] = [[b, q] for b, q in score.tempos]  # the marks after it: the strings change pace where they say
     return data
 
 

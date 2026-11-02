@@ -2,7 +2,7 @@ import Foundation
 import RehearsalCore
 
 // Reads each MusicXML file the Mac read for ios/ImportFixtures (`rehearsal bundle --import-fixtures`) the iPad's way
-// (ScoreImport) and compares: the composer, the starting tempo, the bars, every part's notes and the string parts' loudness curves.
+// (ScoreImport) and compares: the composer, the starting tempo and the tempo marks, the bars, every part's notes and the string parts' loudness curves.
 // Usage (from the repo root): swift run --package-path ios/RehearsalCore import-check [fixtures-dir]
 
 let dir = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "ios/ImportFixtures")
@@ -51,6 +51,7 @@ for f in files {
         if (want["tempo"] as? Double) != (got["tempo"] as? Double) {
             problems.append("tempo: expected \(want["tempo"] ?? "none"), got \(got["tempo"] ?? "none")")
         }
+        if let d = diff(rows(want["tempos"]), rows(got["tempos"])) { problems.append("tempo marks: \(d)") }
         if let d = diff(rows(want["barStarts"]), rows(got["barStarts"])) { problems.append("bars: \(d)") }
         let wp = want["parts"] as! [String: Any], gp = got["parts"] as! [String: Any]
         if Set(wp.keys) != Set(gp.keys) { problems.append("parts: expected \(wp.keys.sorted()), got \(gp.keys.sorted())") }

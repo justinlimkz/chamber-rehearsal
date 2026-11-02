@@ -67,6 +67,9 @@ public struct ScoreImport {
             "dynamics": dyn,
         ]
         if let t = score.tempo { json["tempo"] = t }  // quarter notes a minute for the strings' first notes
+        if Set(score.tempos.map { $0.qpm }).count > 1 {  // the marks after it: the strings change pace where they say
+            json["tempos"] = score.tempos.map { [$0.beat, $0.qpm] }
+        }
         return json
     }
 

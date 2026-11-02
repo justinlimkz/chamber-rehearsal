@@ -70,6 +70,8 @@ What the app reads from the score:
   follow you. If you haven't come in a beat and a half after your entry, the buttons come back (Pause, Again, a
   bar) while the strings keep waiting. Without the pedal they wait for your first note and skip theirs. Count in
   needs the piano plugged in. The clicks can be turned off in Settings.
+- The strings change pace where the score's tempo marks say (an Adagio into a Presto), in proportion to the tempo
+  you've been playing, then follow you.
 - **Strings** sets each instrument's volume and the opening tempo. **Score** chooses which parts to show (the full
   score, or your part alone) and how large.
 - Every session is saved as a MIDI file in the app's folder in Files, with a summary of each pass.

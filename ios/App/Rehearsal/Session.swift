@@ -112,7 +112,7 @@ final class Session: @unchecked Sendable {
 
     /// The strings' tempo for their first notes after a restart (they follow you after that).
     func setTempo(_ bpm: Double) {
-        lock.withLock { if acc.waiting { acc.clock.spb = 60 / bpm } }
+        lock.withLock { if acc.waiting { acc.clock.spb = 60 / bpm / acc.clock.factor(acc.leadIn ?? acc.restartFrom) } }
     }
 
     /// Save the recording (if anything was played) and, with `renew`, start a new one.
@@ -159,7 +159,7 @@ final class Session: @unchecked Sendable {
 
     /// A piano chord the accompanist matched: a restart (logged with asynchrony 0) begins a pass.
     private func track(_ e: LogEntry) {
-        let bpm = 60 / acc.clock.spb
+        let bpm = 60 / acc.clock.spbAt(e.beat)
         if e.asyn == 0.0 || passes.isEmpty {
             passes.append(Pass(firstBeat: e.beat, lastBeat: e.beat, startBpm: bpm, endBpm: bpm))
         } else {
@@ -180,12 +180,12 @@ final class Session: @unchecked Sendable {
                 : state == "counting" ? acc.countFrom + Double(acc.countBeats) * acc.countUnit : nil
             let notices = (acc.notices + extraNotices).sorted { $0.t < $1.t }.suffix(5).map { [$0.t, $0.text] as [Any] }
             return [
-                "state": state, "keyboard": rig.keyboard.name as Any, "bpm": 60 / acc.clock.spb,
+                "state": state, "keyboard": rig.keyboard.name as Any, "bpm": 60 / acc.clock.spbAt(restart ?? acc.clock.b0),
                 "mic": rig.voice.state, "heard": restart != nil ? heard as Any : NSNull(),
                 "notices": notices, "lastCue": restart != nil ? view.lastCue as Any : NSNull(),
                 "restartBeat": restart as Any, "lastBeat": acc.lastBeat as Any, "endBeat": min(acc.endBeat, 1e9),
                 "countIn": acc.canCountIn, "count": [acc.countFrom, Double(acc.countBeats), acc.countUnit],
-                "clock": ["t0": acc.clock.t0, "b0": acc.clock.b0, "spb": acc.clock.spb], "now": now,
+                "clock": ["t0": acc.clock.t0, "b0": acc.clock.b0, "spb": acc.clock.spbAt(acc.clock.b0)], "now": now,
                 "lastPass": passes.last.map { $0.json(score) } as Any, "furthestBeat": furthest as Any,
             ]
         }

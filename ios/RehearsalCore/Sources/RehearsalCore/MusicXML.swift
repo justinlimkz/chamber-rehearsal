@@ -80,6 +80,7 @@ public struct MusicXMLPart: Sendable {
     public var bars: [(beat: Double, number: Int)] = []  // every bar in playing order, by its printed number
     public var marks: [(beat: Double, text: String)] = []  // dynamics (pp ... ff and any others), lower case
     public var hairpins: [(start: Double, end: Double?, sign: Int)] = []  // end nil: "cresc." with no span
+    public var tempos: [(beat: Double, qpm: Double)] = []  // from <sound tempo>, in playing order
 }
 
 public struct MusicXMLScore: Sendable {
@@ -88,6 +89,7 @@ public struct MusicXMLScore: Sendable {
     public var movement: String?
     public var composer: String
     public var tempo: Double?  // quarter notes a minute at the start, from the first part's first <sound tempo>
+    public var tempos: [(beat: Double, qpm: Double)] { parts.first { !$0.tempos.isEmpty }?.tempos ?? [] }  // every mark
     public var parts: [MusicXMLPart]
 
     /// The MusicXML text of `data`: a .musicxml/.xml file as it is, or the score inside a compressed .mxl.
@@ -208,6 +210,7 @@ public struct MusicXMLScore: Sendable {
         var wedges: [(Double, String, String)] = []  // (position, type, number)
         var words: [(Double, Int)] = []  // "cresc." (+1) or "dim." (-1)
         var dashes: [(Double, String, String)] = []  // (position, type, number): the line after a "cresc."
+        var tempos: [(Double, Double)] = []
     }
 
     private static func read(_ node: XMLNode, order: [Int], into part: inout MusicXMLPart) {
@@ -242,7 +245,10 @@ public struct MusicXMLScore: Sendable {
                         let ties = e.all("tie").map { $0.attrs["type"] ?? "" }
                         bar.notes.append((on, dur, (octave + 1) * 12 + s + alter, ties.contains("start"), ties.contains("stop"), grace))
                     }
-                case "direction":
+                case "direction", "sound":
+                    for snd in e.name == "sound" ? [e] : e.all("sound") {
+                        if let q = snd.attrs["tempo"].flatMap(Double.init), q > 0 { bar.tempos.append((pos, q)) }
+                    }
                     for dt in e.all("direction-type") {
                         if let d = dt.child("dynamics") {
                             for k in d.children {
@@ -287,6 +293,7 @@ public struct MusicXMLScore: Sendable {
                 if n.tieStart { open[n.pitch] = part.notes.count - 1 } else { open[n.pitch] = nil }
             }
             for (p, text) in bar.marks { part.marks.append((t + p, text)) }
+            for (p, q) in bar.tempos { part.tempos.append((t + p, q)) }
             // "cresc." with dashes ends where they do; without, it has no span
             let dashed = bar.dashes.filter { $0.1 == "start" }
             for (p, sign) in bar.words {

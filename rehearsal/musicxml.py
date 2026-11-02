@@ -38,6 +38,7 @@ class Part:
     bars: list[tuple[float, int]] = field(default_factory=list)  # (beat, printed number), in playing order
     marks: list[tuple[float, str]] = field(default_factory=list)  # dynamics, lower case
     hairpins: list[tuple[float, float | None, int]] = field(default_factory=list)  # (start, end or None, +1/-1)
+    tempos: list[tuple[float, float]] = field(default_factory=list)  # (beat, quarter notes a minute) from <sound tempo>
 
     @property
     def name(self) -> str:
@@ -52,6 +53,7 @@ class Score:
     composer: str
     parts: list[Part]
     tempo: float | None = None  # quarter notes a minute at the start, from the first part's first <sound tempo>
+    tempos: list[tuple[float, float]] = field(default_factory=list)  # every tempo mark, in playing order: the first part that has them
 
 
 def text(path: Path) -> bytes:
@@ -100,7 +102,8 @@ def load(path: Path, unfold: bool = True) -> Score:
         part = Part(node.get("id", ""), info.get(node.get("id"), []), programs.get(node.get("id")))
         _read(node, order, part)
         parts.append(part)
-    return Score(movement or work or credit("title") or "", work, movement, composer, parts, _tempo(nodes))
+    tempos = next((p.tempos for p in parts if p.tempos), [])
+    return Score(movement or work or credit("title") or "", work, movement, composer, parts, _tempo(nodes), tempos)
 
 
 def _meant(s: str | None) -> str | None:
@@ -204,7 +207,7 @@ def _read(node, order: list[int], part: Part) -> None:
     for index, m in enumerate(node.findall("measure")):
         label = (m.get("number") or "").strip()
         bar = {"number": int(label) if label.lstrip("-").isdigit() else index + 1,
-               "notes": [], "marks": [], "wedges": [], "words": [], "dashes": []}
+               "notes": [], "marks": [], "wedges": [], "words": [], "dashes": [], "tempos": []}
         pos = last = end = 0.0
         for e in m:
             if e.tag == "attributes":
@@ -234,7 +237,13 @@ def _read(node, order: list[int], part: Part) -> None:
                     ties = [t.get("type") for t in e.findall("tie")]
                     pitch = (int(_value(p, "octave")) + 1) * 12 + STEPS[_value(p, "step")] + alter
                     bar["notes"].append((on, dur, pitch, "start" in ties, "stop" in ties))
-            elif e.tag == "direction":
+            elif e.tag in ("direction", "sound"):
+                for snd in [e] if e.tag == "sound" else e.findall("sound"):
+                    try:
+                        if float(snd.get("tempo", "")) > 0:
+                            bar["tempos"].append((pos, float(snd.get("tempo"))))
+                    except ValueError:
+                        pass
                 for dt in e.findall("direction-type"):
                     d = dt.find("dynamics")
                     if d is not None:
@@ -277,6 +286,7 @@ def _read(node, order: list[int], part: Part) -> None:
             else:
                 open_.pop(pitch, None)
         part.marks += [(t + p, text) for p, text in bar["marks"]]
+        part.tempos += [(t + p, q) for p, q in bar["tempos"]]
         # "cresc." with dashes ends where they do; without, it has no span
         dashed = [(p, num) for p, typ, num in bar["dashes"] if typ == "start"]
         for p, sign in bar["words"]:

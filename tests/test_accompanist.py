@@ -25,6 +25,39 @@ def test_clock_converges_to_steady_tempo():
     assert clock.time_of(20.0) == pytest.approx(15.0, abs=0.02)
 
 
+def test_tempo_marks_bend_the_clock():
+    clock = BeatClock(spb=1.0, marks=[(4.0, 0.25), (8.0, 1.0)])  # four times as fast for bars 2 (beats 4 to 8)
+    clock.anchor(0.0, 0.0)
+    assert [clock.time_of(b) for b in (4, 6, 8, 9)] == pytest.approx([4.0, 4.5, 5.0, 6.0])
+    for b in (-1.0, 2.0, 5.0, 8.0, 12.0):
+        assert clock.beat_at(clock.time_of(b)) == pytest.approx(b)
+    clock.anchor(4.5, 6.0)  # anchored inside the fast stretch, backwards too
+    assert clock.beat_at(3.0) == pytest.approx(3.0) and clock.beat_at(4.25) == pytest.approx(5.0)
+    assert clock.spb_at(6.0) == 0.25 and clock.spb_at(9.0) == 1.0
+
+
+def test_a_presto_mark_speeds_the_strings_up_where_it_says():
+    """The Kreutzer: Adagio at 55, Presto at 270 from bar 6. The piano comes in at bar 7 with whole notes under the
+    violin's quarters; the quarters must be at your Presto, not the Adagio's pace (they were 0.3-0.7 s late)."""
+    from pathlib import Path
+
+    kreutzer = Score(Path(__file__).parent / "musicxml" / "outside" / "beethoven-kreutzer-i.mxl")
+    acc = Accompanist(kreutzer, 1, 12, clock=BeatClock(spb=60 / 55))
+    acc.on_cue(0.0, Cue("go"))
+    presto = 60 / 270
+    entry = acc.clock.time_of(acc.restart_from)
+    out, t = run_until(acc, 0.0, entry), entry
+    for b in [b for b in acc.piano_onsets if b < acc.bar_start[10]]:  # your chords, exactly at the Presto
+        t_b = entry + (b - acc.restart_from) * presto
+        out += run_until(acc, t, t_b)
+        play_chord(acc, t_b, b)
+        t = t_b
+    out += run_until(acc, t, t + 4 * presto)
+    quarters = [o for o in out if o.kind == "on" and o.part == "Violin" and acc.bar_start[8] <= o.beat < acc.bar_start[10]]
+    assert len(quarters) >= 8
+    assert all(abs(o.time - (entry + (o.beat - acc.restart_from) * presto)) < 0.03 for o in quarters), quarters
+
+
 def test_strings_wait_for_first_chord_then_come_in_with_it(score):
     acc = Accompanist(score, 1, 16)
     assert acc.due(5.0) == []

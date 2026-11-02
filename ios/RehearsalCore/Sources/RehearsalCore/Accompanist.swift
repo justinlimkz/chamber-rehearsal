@@ -163,6 +163,7 @@ public final class Accompanist {
                 dynamics: Bool = true) {
         self.score = score; self.firstBar = firstBar; self.lastBar = lastBar
         self.clock = clock; self.velocity = velocity; self.dynamics = dynamics
+        self.clock.marks = tempoMarks(score.tempos)
         levels = dynamics ? score.dynamics : nil
         let starts = score.barStarts
         barStarts = starts
@@ -578,7 +579,7 @@ public final class Accompanist {
     private func lateChordNote(_ t: Double, _ pitch: Int) -> Bool {
         let nxt = nextOnset()
         guard let lb = lastBeat, let nx = nxt, pianoPitches[lb]!.contains(pitch) else { return false }
-        return t - lastChordT <= ROLLED_FRACTION * (nx - lb) * clock.spb
+        return t - lastChordT <= ROLLED_FRACTION * (clock.timeOf(nx) - clock.timeOf(lb))
     }
 
     /// The score chord this piano chord most plausibly is, or nil for stray notes.

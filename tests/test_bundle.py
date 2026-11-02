@@ -18,3 +18,9 @@ def test_starting_tempo_from_the_piece_file_else_the_score(tmp_path):
     assert json.loads((bundle.export(Score(), tmp_path / "b") / "score.json").read_text())["tempo"] == 63  # piece file
     assert bundle.score_data(Score())["tempo"] == 74  # the score's first metronome mark
     assert "tempo" not in bundle.score_data(Score("tests/musicxml/basic.musicxml"))  # none: the app starts at 63
+
+
+def test_tempo_marks_where_the_tempo_changes():
+    data = bundle.score_data(Score("tests/musicxml/outside/beethoven-kreutzer-i.mxl"))
+    assert data["tempos"][:2] == [[0.0, 55.0], [15.0, 270.0]]  # Adagio sostenuto, then Presto from bar 6
+    assert "tempos" not in bundle.score_data(Score("tests/musicxml/outside/beethoven-op1-1-trio-i.mxl"))  # 144 twice

@@ -38,6 +38,7 @@ class Score:
         self.title = loaded.title or self.path.stem
         self.composer = loaded.composer
         self.tempo = loaded.tempo
+        self.tempos = loaded.tempos  # (beat, quarter notes a minute): every tempo mark, in playing order
         self.read_parts = loaded.parts
 
     def read(self, name: str) -> musicxml.Part:

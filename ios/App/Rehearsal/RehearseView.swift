@@ -339,7 +339,7 @@ struct StringsPanel: View {
                 HStack {
                     Text("First notes at ♩ \(Int(tempo.rounded()))").monospacedDigit()
                     Spacer()
-                    Stepper("", value: $tempo, in: 30...160, step: 2).labelsHidden()
+                    Stepper("", value: $tempo, in: 30...300, step: 2).labelsHidden()
                         .onChange(of: tempo) { _, v in if abs(v - live.bpm) >= 1 { session.setTempo(v) } }
                 }
                 Text("Only for where the strings come in first. After that they follow you.")

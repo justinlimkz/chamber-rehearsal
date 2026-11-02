@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 
 from . import dynamics
 from .score import Score
-from .tempo import BeatClock
+from .tempo import BeatClock, tempo_marks
 from .voice import Cue
 
 STRING_PARTS = ("Violin", "Viola", "Violoncello")
@@ -94,6 +94,7 @@ class Accompanist:
                            # marked levels, hairpins and phrasing, through held notes too; velocity picks the layer
 
     def __post_init__(self) -> None:
+        self.clock.marks = tempo_marks(getattr(self.score, "tempos", []))
         starts = self.score.bar_starts()
         self.bar_starts = starts
         self.bar_start = {bar: b for b, bar in reversed(starts)}  # first occurrence if repeats unfold
@@ -469,7 +470,7 @@ class Accompanist:
         nxt = self._next_onset()
         if self.last_beat is None or nxt is None or pitch not in self.piano_pitches[self.last_beat]:
             return False
-        return t - self.last_chord_t <= ROLLED_FRACTION * (nxt - self.last_beat) * self.clock.spb
+        return t - self.last_chord_t <= ROLLED_FRACTION * (self.clock.time_of(nxt) - self.clock.time_of(self.last_beat))
 
     def _match(self, t: float, pitches: frozenset[int]) -> float | None:
         """The score chord this piano chord most plausibly is, or None for stray notes."""
