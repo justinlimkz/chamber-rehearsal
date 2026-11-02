@@ -32720,6 +32720,12 @@
       </direction>
     </measure>
     <measure number="37" width="347.09">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <print new-page="yes">
         <staff-layout number="1">
           <staff-distance>45.39</staff-distance>
@@ -33104,6 +33110,12 @@
       </direction>
     </measure>
     <measure number="38" width="305.41">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <direction placement="below">
         <direction-type>
           <dynamics default-x="3.25" default-y="-40.00" relative-y="-25.00">
@@ -33504,6 +33516,12 @@
       </direction>
     </measure>
     <measure number="39" width="305.54">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <direction placement="below">
         <direction-type>
           <dynamics default-x="3.25" default-y="-53.25" relative-y="-25.00">
@@ -33898,6 +33916,12 @@
       </direction>
     </measure>
     <measure number="40" width="360.57">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <print new-system="yes">
         <staff-layout number="1">
           <staff-distance>45.39</staff-distance>
@@ -34296,6 +34320,12 @@
       </direction>
     </measure>
     <measure number="41" width="294.36">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <direction placement="below">
         <direction-type>
           <dynamics default-x="3.25" default-y="-45.75" relative-y="-25.00">
@@ -34615,6 +34645,12 @@
       </direction>
     </measure>
     <measure number="42" width="303.10">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <note default-x="47.56" default-y="-236.42">
         <pitch>
           <step>G</step>
@@ -34932,6 +34968,12 @@
       </direction>
     </measure>
     <measure number="43" width="354.60">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <print new-system="yes">
         <staff-layout number="1">
           <staff-distance>45.39</staff-distance>
@@ -35276,6 +35318,12 @@
       </direction>
     </measure>
     <measure number="44" width="304.19">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <note default-x="47.56" default-y="-276.26">
         <pitch>
           <step>B</step>
@@ -35615,6 +35663,12 @@
       </direction>
     </measure>
     <measure number="45" width="299.25">
+      <attributes>
+        <clef number="2">
+          <sign>F</sign>
+          <line>4</line>
+        </clef>
+      </attributes>
       <note default-x="35.66" default-y="-261.26">
         <pitch>
           <step>E</step>

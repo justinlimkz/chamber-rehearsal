@@ -18,6 +18,12 @@ uv run python scores/cut.py scores/piano-quartet-op47-robert-schumann.mxl 578 70
     "Piano Quartet in E-flat major, Op. 47" "III. Andante cantabile" --dim P1:1
 ```
 
+Clefs: MuseScore 3.6's export dropped every clef change written at the very start of a bar (the ones at the end
+of the bar before came through). They were put back in `piano-quartet-op47-robert-schumann.mxl` from the .mscz
+(2026-11-02): piano left hand, movement I bar 31; II bars 282 and 287; III bars 37-45 (the bass note on each
+downbeat, before the treble clef); IV bars 253 and 257; viola II bars 298 and 304; cello I bar 44, II bar 188,
+IV bar 29. The movement was cut again with the command above. Notes and timing are unchanged.
+
 One correction: in bar 1 the transcription has a crescendo under the violin's chord, where the viola, cello and
 piano have the diminuendo from f to p; the violin gets the diminuendo too. The transcription's hidden tempo
 changes are left in: the app ignores them, except that its first metronome mark (♩ = 74) would be the
